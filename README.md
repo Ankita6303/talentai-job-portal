@@ -33,7 +33,7 @@ talentai/
 
 ### Prerequisites
 - [Node.js v18+](https://nodejs.org)
-- [PostgreSQL 14+](https://www.postgresql.org/download/)
+- [PostgreSQL 16+](https://www.postgresql.org/download/)
 
 ---
 
