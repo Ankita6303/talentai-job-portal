@@ -103,7 +103,7 @@ DB_PASSWORD=TalentAI@2025
 JWT_SECRET=your_generated_secret_here
 
 # Get from: https://console.anthropic.com
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+GROQ_API_KEY=your-key-here
 
 FRONTEND_URL=http://localhost:5173
 ```
@@ -252,7 +252,7 @@ Update `.env` on EC2 with RDS endpoint. Update `VITE_API_URL` to EC2 IP before b
 | DB_USER           | Database user                        |
 | DB_PASSWORD       | Database password                    |
 | JWT_SECRET        | Secret for signing JWT tokens        |
-| ANTHROPIC_API_KEY | Your Anthropic API key               |
+| GROQ_API_KEY      | Your Groq API key                    |
 | FRONTEND_URL      | Frontend URL for CORS                |
 
 ### Frontend (.env)
@@ -272,8 +272,8 @@ Update `.env` on EC2 with RDS endpoint. Update `VITE_API_URL` to EC2 IP before b
 → Run `npm install` in the backend/ folder
 
 **AI screening returns error?**
-→ Check ANTHROPIC_API_KEY in .env is valid
-→ Get key from https://console.anthropic.com
+→ Check GROQ_API_KEY in .env is valid
+→ Get key from https://console.groq.com
 
 **Frontend can't reach backend?**
 → Make sure backend is running on port 4000
