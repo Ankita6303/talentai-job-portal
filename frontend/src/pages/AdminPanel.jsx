@@ -1,21 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 
-
 const API = "https://talentai-job-portal.onrender.com";
 
-const token = () => localStorage.getItem("talentai_token");
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${token()}`,
-});
+// ── Auth helpers ──────────────────────────────────────────────
+const getToken = () => localStorage.getItem("talentai_token");
+const authHeaders = () => {
+  const t = getToken();
+  return {
+    "Content-Type": "application/json",
+    ...(t ? { Authorization: `Bearer ${t}` } : {}),
+  };
+};
 
-// ─── tiny helpers ────────────────────────────────────────────
+// ─── tiny helpers ─────────────────────────────────────────────
 const badge = (verdict) => {
   const map = {
-    "Strong Match": { bg: "#d1fae5", color: "#065f46" },
-    "Good Match":   { bg: "#dbeafe", color: "#1e40af" },
-    "Partial Match":{ bg: "#fef9c3", color: "#854d0e" },
-    "Low Match":    { bg: "#fee2e2", color: "#991b1b" },
+    "Strong Match":  { bg: "#d1fae5", color: "#065f46" },
+    "Good Match":    { bg: "#dbeafe", color: "#1e40af" },
+    "Partial Match": { bg: "#fef9c3", color: "#854d0e" },
+    "Low Match":     { bg: "#fee2e2", color: "#991b1b" },
   };
   const s = map[verdict] || { bg: "#f3f4f6", color: "#374151" };
   return (
@@ -41,11 +44,11 @@ const recBadge = (rec) => {
 
 const statusBadge = (status) => {
   const map = {
-    pending:    { bg: "#f3f4f6", color: "#374151" },
-    reviewed:   { bg: "#dbeafe", color: "#1e40af" },
-    shortlisted:{ bg: "#d1fae5", color: "#065f46" },
-    rejected:   { bg: "#fee2e2", color: "#991b1b" },
-    hired:      { bg: "#ede9fe", color: "#4c1d95" },
+    pending:     { bg: "#f3f4f6", color: "#374151" },
+    reviewed:    { bg: "#dbeafe", color: "#1e40af" },
+    shortlisted: { bg: "#d1fae5", color: "#065f46" },
+    rejected:    { bg: "#fee2e2", color: "#991b1b" },
+    hired:       { bg: "#ede9fe", color: "#4c1d95" },
   };
   const s = map[status] || map.pending;
   return (
@@ -53,6 +56,13 @@ const statusBadge = (status) => {
       {status || "pending"}
     </span>
   );
+};
+
+// ── Safe skill parser: handles array OR JSON string OR plain string ──
+const parseSkills = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { return JSON.parse(raw); } catch { return []; }
 };
 
 // ─── Score Ring ───────────────────────────────────────────────
@@ -85,10 +95,14 @@ function StatCard({ label, value, color = "#6366f1" }) {
 // ─── Modal ────────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-      onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}
-        onClick={(e) => e.stopPropagation()}>
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{title}</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "#6b7280", lineHeight: 1 }}>×</button>
@@ -100,13 +114,23 @@ function Modal({ title, onClose, children }) {
 }
 
 // ─── Job Form ─────────────────────────────────────────────────
-const emptyJob = { title: "", department: "", location: "", type: "Full-time", salary_min: "", salary_max: "", description: "", skills: "", requirements: "", experience_required: "", roles_responsibilities: "" };
+const emptyJob = {
+  title: "", department: "", location: "", type: "Full-time",
+  salary_min: "", salary_max: "", description: "", skills: "",
+  requirements: "", experience_required: "", roles_responsibilities: "",
+};
 
 function JobForm({ initial = emptyJob, onSave, onCancel, saving }) {
-  const [form, setForm] = useState({ ...emptyJob, ...initial,
-    skills: Array.isArray(initial.skills) ? initial.skills.join(", ") : initial.skills || "",
-    requirements: Array.isArray(initial.requirements) ? initial.requirements.join("\n") : initial.requirements || "",
+  const [form, setForm] = useState({
+    ...emptyJob,
+    ...initial,
+    // FIX: safely convert skills & requirements to editable strings
+    skills: parseSkills(initial.skills).join(", ") || (typeof initial.skills === "string" ? initial.skills : ""),
+    requirements: Array.isArray(initial.requirements)
+      ? initial.requirements.join("\n")
+      : (initial.requirements || ""),
   });
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const inp = {
@@ -116,8 +140,9 @@ function JobForm({ initial = emptyJob, onSave, onCancel, saving }) {
   };
 
   const handleSubmit = () => {
-    if (!form.title || !form.department || !form.description)
+    if (!form.title.trim() || !form.department.trim() || !form.description.trim())
       return alert("Title, department and description are required.");
+
     const payload = {
       ...form,
       skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
@@ -173,7 +198,7 @@ function JobForm({ initial = emptyJob, onSave, onCancel, saving }) {
       </div>
 
       <div style={row}>
-        <label style={label}>Roles & Responsibilities</label>
+        <label style={label}>Roles &amp; Responsibilities</label>
         <textarea style={{ ...inp, height: 90, resize: "vertical" }} value={form.roles_responsibilities}
           onChange={(e) => set("roles_responsibilities", e.target.value)}
           placeholder="• Lead frontend development&#10;• Collaborate with design team&#10;• Code reviews" />
@@ -194,7 +219,8 @@ function JobForm({ initial = emptyJob, onSave, onCancel, saving }) {
       </div>
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-        <button onClick={onCancel} style={{ padding: "9px 20px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+        <button onClick={onCancel}
+          style={{ padding: "9px 20px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
           Cancel
         </button>
         <button onClick={handleSubmit} disabled={saving}
@@ -213,18 +239,48 @@ function LoginScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const inp = { width: "100%", padding: "11px 14px", border: "1px solid #d1d5db", borderRadius: 10, fontSize: 15, boxSizing: "border-box", outline: "none", fontFamily: "inherit", marginBottom: 12 };
+  const inp = {
+    width: "100%", padding: "11px 14px", border: "1px solid #d1d5db",
+    borderRadius: 10, fontSize: 15, boxSizing: "border-box", outline: "none",
+    fontFamily: "inherit", marginBottom: 12,
+  };
 
   const submit = async () => {
+    if (!email || !password) { setError("Email and password are required."); return; }
     setLoading(true); setError("");
     try {
-      const r = await fetch(`${API}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const r = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Login failed");
+      if (!r.ok) throw new Error(d.error || d.message || "Login failed");
       localStorage.setItem("talentai_token", d.token);
-      onLogin(d.user);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+      onLogin(d.user || { name: "Admin", email });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async () => {
+    const name = prompt("Your name?");
+    if (!name) return;
+    try {
+      const r = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error || d.message || "Registration failed"); return; }
+      localStorage.setItem("talentai_token", d.token);
+      onLogin(d.user || { name, email });
+    } catch (e) {
+      alert("Registration error: " + e.message);
+    }
   };
 
   return (
@@ -233,26 +289,23 @@ function LoginScreen({ onLogin }) {
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>⚡</div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#111827" }}>TalentAI Admin</h1>
-          <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: 14 }}>Sign in to manage jobs & applicants</p>
+          <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: 14 }}>Sign in to manage jobs &amp; applicants</p>
         </div>
-        {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: "10px 14px", borderRadius: 8, fontSize: 14, marginBottom: 14 }}>{error}</div>}
+        {error && (
+          <div style={{ background: "#fee2e2", color: "#991b1b", padding: "10px 14px", borderRadius: 8, fontSize: 14, marginBottom: 14 }}>{error}</div>
+        )}
         <input style={inp} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input style={inp} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        <input style={inp} type="password" placeholder="Password" value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()} />
         <button onClick={submit} disabled={loading}
           style={{ width: "100%", padding: "12px", border: "none", borderRadius: 10, background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 16, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.8 : 1, marginTop: 4 }}>
           {loading ? "Signing in…" : "Sign In"}
         </button>
         <p style={{ textAlign: "center", fontSize: 13, color: "#9ca3af", marginTop: 16 }}>
-          No account? <a href="#" onClick={async (e) => {
-            e.preventDefault();
-            const name = prompt("Your name?");
-            if (!name) return;
-            const r = await fetch(`${API}/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
-            const d = await r.json();
-            if (!r.ok) { alert(d.error); return; }
-            localStorage.setItem("talentai_token", d.token);
-            onLogin(d.user);
-          }} style={{ color: "#4f46e5", fontWeight: 600 }}>Register</a>
+          No account?{" "}
+          <a href="#" onClick={(e) => { e.preventDefault(); register(); }}
+            style={{ color: "#4f46e5", fontWeight: 600 }}>Register</a>
         </p>
       </div>
     </div>
@@ -264,14 +317,16 @@ function LoginScreen({ onLogin }) {
 // ══════════════════════════════════════════════════════════════
 export default function AdminPanel() {
   const [user, setUser] = useState(() => {
-    const t = localStorage.getItem("talentai_token");
+    const t = getToken();
+    // FIX: only restore session if token actually exists
     return t ? { name: "Admin" } : null;
   });
+
   const [tab, setTab] = useState("dashboard");
   const [jobs, setJobs] = useState([]);
   const [apps, setApps] = useState([]);
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState("");
 
   const [showJobForm, setShowJobForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
@@ -282,74 +337,135 @@ export default function AdminPanel() {
   const [appSort, setAppSort] = useState("score");
   const [jobFilter, setJobFilter] = useState("all");
 
+  // ── Fetch helpers ──────────────────────────────────────────
   const fetchJobs = useCallback(async () => {
-    const r = await fetch(`${API}/jobs`, { headers: authHeaders() });
-    const d = await r.json(); setJobs(Array.isArray(d) ? d : []);
+    try {
+      const r = await fetch(`${API}/jobs`, { headers: authHeaders() });
+      if (r.status === 401) { handleLogout(); return; }
+      const d = await r.json();
+      setJobs(Array.isArray(d) ? d : []);
+    } catch (e) {
+      setFetchError("Could not load jobs: " + e.message);
+    }
   }, []);
 
   const fetchApps = useCallback(async () => {
-    const r = await fetch(`${API}/applications?sort=${appSort}`, { headers: authHeaders() });
-    const d = await r.json(); setApps(Array.isArray(d) ? d : []);
+    try {
+      const r = await fetch(`${API}/applications?sort=${appSort}`, { headers: authHeaders() });
+      if (r.status === 401) { handleLogout(); return; }
+      const d = await r.json();
+      setApps(Array.isArray(d) ? d : []);
+    } catch (e) {
+      setFetchError("Could not load applications: " + e.message);
+    }
   }, [appSort]);
 
   const fetchStats = useCallback(async () => {
-    const r = await fetch(`${API}/stats`, { headers: authHeaders() });
-    const d = await r.json(); setStats(d);
+    try {
+      const r = await fetch(`${API}/stats`, { headers: authHeaders() });
+      if (r.status === 401) { handleLogout(); return; }
+      const d = await r.json();
+      setStats(d);
+    } catch (e) {
+      console.warn("Stats fetch failed:", e.message);
+    }
   }, []);
 
-  useEffect(() => { if (user) { fetchJobs(); fetchApps(); fetchStats(); } }, [user, fetchJobs, fetchApps, fetchStats]);
+  useEffect(() => {
+    if (user) {
+      setFetchError("");
+      fetchJobs();
+      fetchApps();
+      fetchStats();
+    }
+  }, [user, fetchJobs, fetchApps, fetchStats]);
 
-  // ── Job CRUD ──
+  const handleLogout = () => {
+    localStorage.removeItem("talentai_token");
+    setUser(null);
+  };
+
+  // ── Job CRUD ──────────────────────────────────────────────
+  const openNewJobForm = () => {
+    setEditJob(null);
+    setShowJobForm(true);
+  };
+
+  const closeJobForm = () => {
+    setShowJobForm(false);
+    setEditJob(null);
+  };
+
   const saveJob = async (payload) => {
     setSaving(true);
     try {
       const url = editJob ? `${API}/jobs/${editJob.id}` : `${API}/jobs`;
       const method = editJob ? "PUT" : "POST";
       const r = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
-      await fetchJobs(); await fetchStats();
-      setShowJobForm(false); setEditJob(null);
-    } catch (e) { alert("Error: " + e.message); }
-    finally { setSaving(false); }
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || d.message || "Save failed");
+      await fetchJobs();
+      await fetchStats();
+      closeJobForm();
+    } catch (e) {
+      alert("Error saving job: " + e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteJob = async (id) => {
-    if (!confirm("Deactivate this job? Existing applications are kept.")) return;
-    await fetch(`${API}/jobs/${id}`, { method: "DELETE", headers: authHeaders() });
-    fetchJobs(); fetchStats();
+    if (!window.confirm("Deactivate this job? Existing applications are kept.")) return;
+    try {
+      await fetch(`${API}/jobs/${id}`, { method: "DELETE", headers: authHeaders() });
+      fetchJobs();
+      fetchStats();
+    } catch (e) {
+      alert("Delete failed: " + e.message);
+    }
   };
 
   const updateAppStatus = async (id, status, notes) => {
-    await fetch(`${API}/applications/${id}/status`, {
-      method: "PATCH", headers: authHeaders(),
-      body: JSON.stringify({ status, recruiter_notes: notes }),
-    });
-    fetchApps();
-    if (selectedApp?.id === id) setSelectedApp((a) => ({ ...a, status, recruiter_notes: notes }));
+    try {
+      await fetch(`${API}/applications/${id}/status`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ status, recruiter_notes: notes }),
+      });
+      fetchApps();
+      if (selectedApp?.id === id)
+        setSelectedApp((a) => ({ ...a, status, recruiter_notes: notes }));
+    } catch (e) {
+      alert("Status update failed: " + e.message);
+    }
   };
 
-  // ── Filtered apps ──
-  const filteredApps = apps.filter((a) => {
-    if (appFilter === "all") return true;
-    if (appFilter === "advance") return a.ai_recommendation === "Advance to Interview";
-    if (appFilter === "hold")    return a.ai_recommendation === "Hold";
-    if (appFilter === "reject")  return a.ai_recommendation === "Reject";
-    return true;
-  }).filter((a) => jobFilter === "all" || a.job_id === jobFilter);
+  // ── Filtered apps ─────────────────────────────────────────
+  const filteredApps = apps
+    .filter((a) => {
+      if (appFilter === "advance") return a.ai_recommendation === "Advance to Interview";
+      if (appFilter === "hold")    return a.ai_recommendation === "Hold";
+      if (appFilter === "reject")  return a.ai_recommendation === "Reject";
+      return true;
+    })
+    .filter((a) => jobFilter === "all" || String(a.job_id) === String(jobFilter));
 
   if (!user) return <LoginScreen onLogin={setUser} />;
 
-  const sideItems = [
-    { key: "dashboard", label: "Dashboard",    icon: "📊" },
-    { key: "jobs",      label: "Jobs",          icon: "💼" },
-    { key: "applicants",label: "Applicants",    icon: "👥" },
-  ];
-
-  // ── styles ──
+  // ── Styles ────────────────────────────────────────────────
   const card = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "1.25rem 1.5rem", marginBottom: 16 };
   const th = { padding: "11px 14px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
   const td = { padding: "12px 14px", fontSize: 14, color: "#111827", borderBottom: "1px solid #f3f4f6", verticalAlign: "middle" };
-  const btn = (bg = "#4f46e5", col = "#fff") => ({ padding: "8px 16px", border: "none", borderRadius: 8, background: bg, color: col, cursor: "pointer", fontWeight: 600, fontSize: 13 });
+  const btn = (bg = "#4f46e5", col = "#fff") => ({
+    padding: "8px 16px", border: "none", borderRadius: 8,
+    background: bg, color: col, cursor: "pointer", fontWeight: 600, fontSize: 13,
+  });
+
+  const sideItems = [
+    { key: "dashboard", label: "Dashboard",  icon: "📊" },
+    { key: "jobs",      label: "Jobs",        icon: "💼" },
+    { key: "applicants",label: "Applicants",  icon: "👥" },
+  ];
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f9fafb", fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -370,13 +486,21 @@ export default function AdminPanel() {
         </nav>
         <div style={{ padding: "16px 20px", borderTop: "1px solid #312e81" }}>
           <div style={{ fontSize: 13, color: "#a5b4fc", marginBottom: 8 }}>👤 {user.name || "Admin"}</div>
-          <button onClick={() => { localStorage.removeItem("talentai_token"); setUser(null); }}
-            style={{ ...btn("#312e81", "#a5b4fc"), width: "100%", textAlign: "center" }}>Sign Out</button>
+          <button onClick={handleLogout} style={{ ...btn("#312e81", "#a5b4fc"), width: "100%", textAlign: "center" }}>
+            Sign Out
+          </button>
         </div>
       </aside>
 
       {/* ── Main ── */}
       <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
+
+        {/* Global fetch error banner */}
+        {fetchError && (
+          <div style={{ background: "#fee2e2", color: "#991b1b", padding: "10px 16px", borderRadius: 8, marginBottom: 20, fontSize: 14 }}>
+            ⚠️ {fetchError}
+          </div>
+        )}
 
         {/* ════ DASHBOARD ════ */}
         {tab === "dashboard" && (
@@ -389,7 +513,6 @@ export default function AdminPanel() {
               <StatCard label="Active Jobs" value={jobs.length} color="#f59e0b" />
             </div>
 
-            {/* By Recommendation */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div style={card}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>AI Recommendations</h3>
@@ -424,53 +547,67 @@ export default function AdminPanel() {
         {tab === "jobs" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#111827" }}>Jobs ({jobs.length})</h1>
-              <button onClick={() => { setEditJob(null); setShowJobForm(true); }} style={btn()}>+ Post New Job</button>
+              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#111827" }}>
+                Jobs ({jobs.length})
+              </h1>
+              {/* FIX: button always visible, calls openNewJobForm */}
+              <button onClick={openNewJobForm} style={btn()}>+ Post New Job</button>
             </div>
 
             {jobs.length === 0 ? (
               <div style={{ ...card, textAlign: "center", padding: "3rem", color: "#9ca3af" }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>💼</div>
                 <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No jobs posted yet</div>
-                <button onClick={() => setShowJobForm(true)} style={btn()}>Post Your First Job</button>
+                <button onClick={openNewJobForm} style={btn()}>Post Your First Job</button>
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid #e5e7eb" }}>
-                  <thead><tr style={{ background: "#f9fafb" }}>
-                    <th style={th}>Title</th>
-                    <th style={th}>Department</th>
-                    <th style={th}>Location</th>
-                    <th style={th}>Type</th>
-                    <th style={th}>Experience</th>
-                    <th style={th}>Skills</th>
-                    <th style={th}>Actions</th>
-                  </tr></thead>
+                  <thead>
+                    <tr style={{ background: "#f9fafb" }}>
+                      <th style={th}>Title</th>
+                      <th style={th}>Department</th>
+                      <th style={th}>Location</th>
+                      <th style={th}>Type</th>
+                      <th style={th}>Experience</th>
+                      <th style={th}>Skills</th>
+                      <th style={th}>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {jobs.map((j) => (
-                      <tr key={j.id} style={{ cursor: "default" }}>
-                        <td style={{ ...td, fontWeight: 700 }}>{j.title}</td>
-                        <td style={td}>{j.department}</td>
-                        <td style={td}>{j.location || "—"}</td>
-                        <td style={td}><span style={{ background: "#ede9fe", color: "#4c1d95", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{j.type || "—"}</span></td>
-                        <td style={td}>{j.experience_required || "—"}</td>
-                        <td style={{ ...td, maxWidth: 200 }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {(Array.isArray(j.skills) ? j.skills : JSON.parse(j.skills || "[]")).slice(0, 3).map((s) => (
-                              <span key={s} style={{ background: "#e0e7ff", color: "#3730a3", padding: "1px 8px", borderRadius: 999, fontSize: 11 }}>{s}</span>
-                            ))}
-                            {(Array.isArray(j.skills) ? j.skills : JSON.parse(j.skills || "[]")).length > 3 &&
-                              <span style={{ color: "#9ca3af", fontSize: 11 }}>+{(Array.isArray(j.skills) ? j.skills : JSON.parse(j.skills || "[]")).length - 3} more</span>}
-                          </div>
-                        </td>
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => { setEditJob(j); setShowJobForm(true); }} style={btn("#e0e7ff", "#3730a3")}>Edit</button>
-                            <button onClick={() => deleteJob(j.id)} style={btn("#fee2e2", "#991b1b")}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {jobs.map((j) => {
+                      // FIX: use safe parser so a bad value never crashes the row
+                      const skills = parseSkills(j.skills);
+                      return (
+                        <tr key={j.id}>
+                          <td style={{ ...td, fontWeight: 700 }}>{j.title}</td>
+                          <td style={td}>{j.department}</td>
+                          <td style={td}>{j.location || "—"}</td>
+                          <td style={td}>
+                            <span style={{ background: "#ede9fe", color: "#4c1d95", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+                              {j.type || "—"}
+                            </span>
+                          </td>
+                          <td style={td}>{j.experience_required || "—"}</td>
+                          <td style={{ ...td, maxWidth: 200 }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {skills.slice(0, 3).map((s) => (
+                                <span key={s} style={{ background: "#e0e7ff", color: "#3730a3", padding: "1px 8px", borderRadius: 999, fontSize: 11 }}>{s}</span>
+                              ))}
+                              {skills.length > 3 && (
+                                <span style={{ color: "#9ca3af", fontSize: 11 }}>+{skills.length - 3} more</span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={td}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button onClick={() => { setEditJob(j); setShowJobForm(true); }} style={btn("#e0e7ff", "#3730a3")}>Edit</button>
+                              <button onClick={() => deleteJob(j.id)} style={btn("#fee2e2", "#991b1b")}>Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -481,9 +618,10 @@ export default function AdminPanel() {
         {/* ════ APPLICANTS ════ */}
         {tab === "applicants" && (
           <div>
-            <h1 style={{ margin: "0 0 20px", fontSize: 26, fontWeight: 800, color: "#111827" }}>Applicants ({filteredApps.length})</h1>
+            <h1 style={{ margin: "0 0 20px", fontSize: 26, fontWeight: 800, color: "#111827" }}>
+              Applicants ({filteredApps.length})
+            </h1>
 
-            {/* Filters */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
               <select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}
                 style={{ padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, background: "#fff" }}>
@@ -515,15 +653,17 @@ export default function AdminPanel() {
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid #e5e7eb" }}>
-                  <thead><tr style={{ background: "#f9fafb" }}>
-                    <th style={th}>Applicant</th>
-                    <th style={th}>Job</th>
-                    <th style={th}>AI Score</th>
-                    <th style={th}>Verdict</th>
-                    <th style={th}>Recommendation</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Actions</th>
-                  </tr></thead>
+                  <thead>
+                    <tr style={{ background: "#f9fafb" }}>
+                      <th style={th}>Applicant</th>
+                      <th style={th}>Job</th>
+                      <th style={th}>AI Score</th>
+                      <th style={th}>Verdict</th>
+                      <th style={th}>Recommendation</th>
+                      <th style={th}>Status</th>
+                      <th style={th}>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {filteredApps.map((a) => (
                       <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => setSelectedApp(a)}>
@@ -560,8 +700,13 @@ export default function AdminPanel() {
 
       {/* ════ Job Form Modal ════ */}
       {showJobForm && (
-        <Modal title={editJob ? "Edit Job" : "Post New Job"} onClose={() => { setShowJobForm(false); setEditJob(null); }}>
-          <JobForm initial={editJob || emptyJob} onSave={saveJob} onCancel={() => { setShowJobForm(false); setEditJob(null); }} saving={saving} />
+        <Modal title={editJob ? "Edit Job" : "Post New Job"} onClose={closeJobForm}>
+          <JobForm
+            initial={editJob || emptyJob}
+            onSave={saveJob}
+            onCancel={closeJobForm}
+            saving={saving}
+          />
         </Modal>
       )}
 
@@ -598,7 +743,7 @@ export default function AdminPanel() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>✅ Matched Skills</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {(Array.isArray(selectedApp.ai_matched_skills) ? selectedApp.ai_matched_skills : JSON.parse(selectedApp.ai_matched_skills || "[]")).map((s) => (
+                  {parseSkills(selectedApp.ai_matched_skills).map((s) => (
                     <span key={s} style={{ background: "#d1fae5", color: "#065f46", padding: "2px 9px", borderRadius: 999, fontSize: 12 }}>{s}</span>
                   ))}
                 </div>
@@ -606,7 +751,7 @@ export default function AdminPanel() {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>❌ Missing Skills</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {(Array.isArray(selectedApp.ai_missing_skills) ? selectedApp.ai_missing_skills : JSON.parse(selectedApp.ai_missing_skills || "[]")).map((s) => (
+                  {parseSkills(selectedApp.ai_missing_skills).map((s) => (
                     <span key={s} style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 9px", borderRadius: 999, fontSize: 12 }}>{s}</span>
                   ))}
                 </div>
@@ -628,11 +773,13 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {(Array.isArray(selectedApp.ai_interview_questions) ? selectedApp.ai_interview_questions : JSON.parse(selectedApp.ai_interview_questions || "[]")).length > 0 && (
+            {parseSkills(selectedApp.ai_interview_questions).length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>🎤 Suggested Interview Questions</div>
                 <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
-                  {(Array.isArray(selectedApp.ai_interview_questions) ? selectedApp.ai_interview_questions : JSON.parse(selectedApp.ai_interview_questions || "[]")).map((q, i) => <li key={i} style={{ marginBottom: 4 }}>{q}</li>)}
+                  {parseSkills(selectedApp.ai_interview_questions).map((q, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>{q}</li>
+                  ))}
                 </ol>
               </div>
             )}
@@ -647,9 +794,12 @@ export default function AdminPanel() {
                   </button>
                 ))}
               </div>
-              <textarea placeholder="Recruiter notes…" defaultValue={selectedApp.recruiter_notes || ""}
+              <textarea
+                placeholder="Recruiter notes…"
+                defaultValue={selectedApp.recruiter_notes || ""}
                 onBlur={(e) => updateAppStatus(selectedApp.id, selectedApp.status, e.target.value)}
-                style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box", minHeight: 80, resize: "vertical", fontFamily: "inherit" }} />
+                style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box", minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+              />
             </div>
           </div>
         </Modal>
