@@ -1,6 +1,5 @@
 // ── API Client ────────────────────────────────────────────────
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-
+const BASE = import.meta.env.VITE_API_URL || 'https://talentai-job-portal.onrender.com';
 async function req(path, opts = {}) {
   const token = localStorage.getItem('talentai_token');
   const res   = await fetch(`${BASE}${path}`, {
