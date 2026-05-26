@@ -19,7 +19,11 @@ const upload = multer({
   },
 });
 
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: "https://talentai-job-portal-2026.netlify.app",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -34,8 +38,46 @@ const pool = new Pool({
   max:      10,
 });
 
-pool.connect()
-  .then(c => { console.log('✅  PostgreSQL connected'); c.release(); })
+async function initDB() {
+  try {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email TEXT UNIQUE,
+        password_hash TEXT,
+        name TEXT,
+        role TEXT DEFAULT 'admin'
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        title TEXT,
+        department TEXT,
+        description TEXT,
+        is_active BOOLEAN DEFAULT true
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS applications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_id UUID,
+        name TEXT,
+        email TEXT,
+        resume_text TEXT,
+        ai_score INTEGER
+      );
+    `);
+
+    console.log("✅ Tables created / verified");
+  } catch (err) {
+    console.error("❌ initDB error:", err.message);
+  }
+}
   .catch(e => console.error('❌  DB error:', e.message));
 
 // ── JWT ───────────────────────────────────────────────────────
@@ -319,15 +361,15 @@ app.get('/applications', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/applications/:id', requireAuth, async (req, res) => {
+app.get('/jobs', async (req, res) => {
   try {
     const r = await pool.query(
-      'SELECT a.*,j.title AS job_title,j.department FROM applications a JOIN jobs j ON a.job_id=j.id WHERE a.id=$1',
-      [req.params.id]
+      'SELECT * FROM jobs WHERE is_active=true ORDER BY id DESC'
     );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.patch('/applications/:id/status', requireAuth, async (req, res) => {
@@ -362,8 +404,9 @@ app.get('/stats', requireAuth, async (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
+initDB();
 app.listen(PORT, () => {
-  console.log(`\n🚀  TalentAI  →  http://localhost:${PORT}`);
-  console.log(`🤖  AI Engine: ${process.env.GROQ_API_KEY ? '✅ Groq LLaMA 3.1 (FREE)' : '❌ GROQ_API_KEY missing!'}`);
-  console.log(`🗄️   Database: ${process.env.DB_USER}@${process.env.DB_HOST}/${process.env.DB_NAME}\n`);
+  console.log(`🚀 TalentAI → http://localhost:${PORT}`);
+  console.log(`🤖 AI Engine: ${process.env.GROQ_API_KEY ? '✅ Groq LLaMA' : '❌ missing'}`);
+  console.log(`🗄️ Database: connected`);
 });
