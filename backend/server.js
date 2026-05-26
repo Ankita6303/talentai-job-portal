@@ -21,12 +21,17 @@ const upload = multer({
 
 app.use(cors({
   origin: [
-    "http://localhost:5173",
+    "http://localhost:5175",
+    "http://localhost:5174",
     "https://talentai-job-portal-2026.netlify.app"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+// ← ADD THIS LINE immediately after
+app.options('*', cors());   // handle preflight for ALL routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
