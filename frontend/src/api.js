@@ -1,5 +1,5 @@
 // ── API Client ────────────────────────────────────────────────
-const BASE = import.meta.env.VITE_API_URL || 'https://talentai-job-portal.onrender.com';
+const BASE = 'https://talentai-job-portal.onrender.com';
 async function req(path, opts = {}) {
   const token = localStorage.getItem('talentai_token');
   const res   = await fetch(`${BASE}${path}`, {
@@ -60,3 +60,7 @@ export const api = {
   // Stats
   getStats: () => req('/stats'),
 };
+// Add at the bottom of api.js
+export function wakeBackend() {
+  fetch(`${BASE}/health`).catch(() => {});
+}
