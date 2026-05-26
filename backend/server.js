@@ -20,8 +20,11 @@ const upload = multer({
 });
 
 app.use(cors({
-  origin: "https://talentai-job-portal-2026.netlify.app",
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: [
+    "http://localhost:5173",
+    "https://talentai-job-portal-2026.netlify.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 app.use(express.json());
@@ -34,58 +37,82 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'talentai',
   user:     process.env.DB_USER     || 'talentai_user',
   password: String(process.env.DB_PASSWORD || ''),
-  ssl:      false,
+  ssl:      process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max:      10,
 });
 
 async function initDB() {
-  try {
-    await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+  await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        email TEXT UNIQUE,
-        password_hash TEXT,
-        name TEXT,
-        role TEXT DEFAULT 'admin'
-      );
-    `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      email         TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name          TEXT NOT NULL,
+      role          TEXT DEFAULT 'admin',
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS jobs (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        title TEXT,
-        department TEXT,
-        description TEXT,
-        is_active BOOLEAN DEFAULT true
-      );
-    `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS jobs (
+      id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      title        TEXT NOT NULL,
+      department   TEXT NOT NULL,
+      location     TEXT,
+      type         TEXT,
+      salary_min   NUMERIC,
+      salary_max   NUMERIC,
+      description  TEXT NOT NULL,
+      skills       JSONB DEFAULT '[]',
+      requirements JSONB DEFAULT '[]',
+      is_active    BOOLEAN DEFAULT true,
+      created_by   UUID REFERENCES users(id),
+      created_at   TIMESTAMPTZ DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS applications (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        job_id UUID,
-        name TEXT,
-        email TEXT,
-        resume_text TEXT,
-        ai_score INTEGER
-      );
-    `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id                     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      job_id                 UUID REFERENCES jobs(id),
+      name                   TEXT NOT NULL,
+      email                  TEXT NOT NULL,
+      phone                  TEXT,
+      cover_letter           TEXT,
+      resume_text            TEXT,
+      ai_score               INTEGER,
+      ai_verdict             TEXT,
+      ai_summary             TEXT,
+      ai_matched_skills      JSONB DEFAULT '[]',
+      ai_missing_skills      JSONB DEFAULT '[]',
+      ai_experience_years    NUMERIC,
+      ai_strengths           JSONB DEFAULT '[]',
+      ai_concerns            JSONB DEFAULT '[]',
+      ai_recommendation      TEXT,
+      ai_interview_questions JSONB DEFAULT '[]',
+      status                 TEXT DEFAULT 'pending',
+      recruiter_notes        TEXT,
+      created_at             TIMESTAMPTZ DEFAULT NOW(),
+      updated_at             TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
 
-    console.log("✅ Tables created / verified");
-  } catch (err) {
-    console.error("❌ initDB error:", err.message);
-  }
+  console.log('✅ Tables created / verified');
 }
-  .catch(e => console.error('❌  DB error:', e.message));
 
 // ── JWT ───────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Token required' });
-  try { req.user = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret'); next(); }
-  catch { res.status(401).json({ error: 'Invalid token' }); }
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
+  }
 }
 
 // ── PDF Text Extraction ───────────────────────────────────────
@@ -101,18 +128,21 @@ async function extractText(file) {
   return file.buffer.toString('utf-8');
 }
 
-// ── Groq AI Screener (FREE — 14,400 req/day) ─────────────────
+// ── Groq AI Screener ──────────────────────────────────────────
 async function screenResume(resumeText, job) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY is not set in your .env file');
+
+  const skills       = Array.isArray(job.skills)       ? job.skills       : JSON.parse(job.skills       || '[]');
+  const requirements = Array.isArray(job.requirements) ? job.requirements : JSON.parse(job.requirements || '[]');
 
   const prompt = `You are an expert ATS (Applicant Tracking System) and technical recruiter.
 Analyze the resume against the job description. Return ONLY raw JSON — no markdown, no code fences, no explanation.
 
 JOB TITLE: ${job.title}
 DEPARTMENT: ${job.department}
-REQUIRED SKILLS: ${(job.skills || []).join(', ')}
-REQUIREMENTS: ${(job.requirements || []).join(' | ')}
+REQUIRED SKILLS: ${skills.join(', ')}
+REQUIREMENTS: ${requirements.join(' | ')}
 JOB DESCRIPTION: ${job.description}
 
 RESUME:
@@ -143,18 +173,12 @@ Return ONLY this JSON, nothing else:
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model:       'llama-3.1-8b-instant',   // free, fast, very capable
+      model:       'llama-3.1-8b-instant',
       temperature: 0.1,
       max_tokens:  1024,
       messages: [
-        {
-          role:    'system',
-          content: 'You are an ATS resume screening expert. Always respond with only valid raw JSON, no markdown.',
-        },
-        {
-          role:    'user',
-          content: prompt,
-        },
+        { role: 'system', content: 'You are an ATS resume screening expert. Always respond with only valid raw JSON, no markdown.' },
+        { role: 'user',   content: prompt },
       ],
     }),
   });
@@ -164,12 +188,11 @@ Return ONLY this JSON, nothing else:
     throw new Error(`Groq API error ${res.status}: ${errText.slice(0, 300)}`);
   }
 
-  const data = await res.json();
-  const raw  = data.choices?.[0]?.message?.content || '';
+  const data      = await res.json();
+  const raw       = data.choices?.[0]?.message?.content || '';
   console.log('✅ Groq raw output:', raw.slice(0, 150));
 
-  // Strip markdown fences if present
-  const cleaned   = raw.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+  const cleaned   = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
   const jsonStart = cleaned.indexOf('{');
   const jsonEnd   = cleaned.lastIndexOf('}');
   if (jsonStart === -1 || jsonEnd === -1)
@@ -181,11 +204,32 @@ Return ONLY this JSON, nothing else:
   return parsed;
 }
 
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  ROUTES
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+
+// ── Reset DB (drops & recreates all tables) ───────────────────
+// Visit: https://your-app.onrender.com/reset-db?secret=YOUR_RESET_SECRET
+// Set RESET_SECRET in Render env vars. Delete this route after first use.
+app.get('/reset-db', async (req, res) => {
+  const secret = process.env.RESET_SECRET || 'reset-talentai-now';
+  if (req.query.secret !== secret)
+    return res.status(403).json({ error: 'Wrong secret' });
+
+  try {
+    await pool.query('DROP TABLE IF EXISTS applications CASCADE;');
+    await pool.query('DROP TABLE IF EXISTS jobs CASCADE;');
+    await pool.query('DROP TABLE IF EXISTS users CASCADE;');
+    console.log('🗑️  All tables dropped');
+    await initDB();
+    res.json({ success: true, message: '✅ All tables dropped and recreated successfully!' });
+  } catch (err) {
+    console.error('Reset error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Auth ──────────────────────────────────────────────────────
 app.post('/auth/register', async (req, res) => {
@@ -252,7 +296,7 @@ app.post('/jobs', requireAuth, async (req, res) => {
       `INSERT INTO jobs (title,department,location,type,salary_min,salary_max,description,skills,requirements,created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [title, department, location, type, salary_min, salary_max, description,
-       JSON.stringify(skills||[]), JSON.stringify(requirements||[]), req.user.id]
+       JSON.stringify(skills || []), JSON.stringify(requirements || []), req.user.id]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -265,7 +309,7 @@ app.put('/jobs/:id', requireAuth, async (req, res) => {
       `UPDATE jobs SET title=$1,department=$2,location=$3,type=$4,salary_min=$5,salary_max=$6,
        description=$7,skills=$8,requirements=$9,is_active=$10,updated_at=NOW() WHERE id=$11 RETURNING *`,
       [title, department, location, type, salary_min, salary_max, description,
-       JSON.stringify(skills||[]), JSON.stringify(requirements||[]),
+       JSON.stringify(skills || []), JSON.stringify(requirements || []),
        is_active !== undefined ? is_active : true, req.params.id]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Job not found' });
@@ -289,17 +333,14 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
     return res.status(400).json({ error: 'Upload a PDF or paste resume text' });
 
   try {
-    // 1. Extract text from PDF
     const resumeText = req.file ? await extractText(req.file) : req.body.resume_text;
     if (!resumeText || resumeText.length < 30)
       return res.status(400).json({ error: 'Resume too short or unreadable. Use a text-based PDF.' });
 
-    // 2. Get job details
     const jRes = await pool.query('SELECT * FROM jobs WHERE id=$1 AND is_active=true', [job_id]);
     if (!jRes.rows[0]) return res.status(404).json({ error: 'Job not found' });
     const job = jRes.rows[0];
 
-    // 3. Duplicate check
     const dup = await pool.query(
       'SELECT id FROM applications WHERE job_id=$1 AND email=$2',
       [job_id, email.toLowerCase()]
@@ -307,7 +348,6 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
     if (dup.rows.length)
       return res.status(409).json({ error: 'You already applied for this position' });
 
-    // 4. AI Screen via Groq
     let aiResult;
     try {
       aiResult = await screenResume(resumeText, job);
@@ -317,7 +357,6 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
       return res.status(500).json({ error: 'AI screening failed: ' + aiErr.message });
     }
 
-    // 5. Save to DB
     const aRes = await pool.query(
       `INSERT INTO applications
        (job_id,name,email,phone,cover_letter,resume_text,
@@ -325,18 +364,18 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
         ai_experience_years,ai_strengths,ai_concerns,ai_recommendation,ai_interview_questions)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
       [
-        job_id, name, email.toLowerCase(), phone||null, cover_letter||null,
+        job_id, name, email.toLowerCase(), phone || null, cover_letter || null,
         resumeText.slice(0, 20000),
         aiResult.ats_score,
         aiResult.verdict,
         aiResult.summary,
-        JSON.stringify(aiResult.matched_skills      || []),
-        JSON.stringify(aiResult.missing_skills      || []),
+        JSON.stringify(aiResult.matched_skills       || []),
+        JSON.stringify(aiResult.missing_skills       || []),
         aiResult.experience_years || null,
-        JSON.stringify(aiResult.strengths           || []),
-        JSON.stringify(aiResult.concerns            || []),
+        JSON.stringify(aiResult.strengths            || []),
+        JSON.stringify(aiResult.concerns             || []),
         aiResult.recommendation,
-        JSON.stringify(aiResult.interview_questions || []),
+        JSON.stringify(aiResult.interview_questions  || []),
       ]
     );
 
@@ -352,24 +391,24 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
 app.get('/applications', requireAuth, async (req, res) => {
   try {
     const { sort = 'score' } = req.query;
-    const orders = { score:'a.ai_score DESC', date:'a.created_at DESC', name:'a.name ASC' };
+    const orders = { score: 'a.ai_score DESC', date: 'a.created_at DESC', name: 'a.name ASC' };
     const r = await pool.query(
       `SELECT a.*,j.title AS job_title,j.department FROM applications a
-       JOIN jobs j ON a.job_id=j.id ORDER BY ${orders[sort]||'a.ai_score DESC'}`
+       JOIN jobs j ON a.job_id=j.id ORDER BY ${orders[sort] || 'a.ai_score DESC'}`
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/jobs', async (req, res) => {
+app.get('/applications/:id', requireAuth, async (req, res) => {
   try {
     const r = await pool.query(
-      'SELECT * FROM jobs WHERE is_active=true ORDER BY id DESC'
+      'SELECT a.*,j.title AS job_title,j.department FROM applications a JOIN jobs j ON a.job_id=j.id WHERE a.id=$1',
+      [req.params.id]
     );
-    res.json(r.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.patch('/applications/:id/status', requireAuth, async (req, res) => {
@@ -377,7 +416,7 @@ app.patch('/applications/:id/status', requireAuth, async (req, res) => {
   try {
     const r = await pool.query(
       'UPDATE applications SET status=COALESCE($1,status),recruiter_notes=COALESCE($2,recruiter_notes),updated_at=NOW() WHERE id=$3 RETURNING *',
-      [status||null, recruiter_notes||null, req.params.id]
+      [status || null, recruiter_notes || null, req.params.id]
     );
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -395,18 +434,27 @@ app.get('/stats', requireAuth, async (req, res) => {
     ]);
     res.json({
       total:             Number(total.rows[0].count),
-      average_score:     Number(avg.rows[0].avg)||0,
-      by_recommendation: Object.fromEntries(byRec.rows.map(r=>[r.ai_recommendation,Number(r.count)])),
+      average_score:     Number(avg.rows[0].avg) || 0,
+      by_recommendation: Object.fromEntries(byRec.rows.map(r => [r.ai_recommendation, Number(r.count)])),
       by_job:            byJob.rows,
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Start ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  START — initDB first, then listen
+// ═══════════════════════════════════════════════════════════════
 const PORT = process.env.PORT || 4000;
-initDB();
-app.listen(PORT, () => {
-  console.log(`🚀 TalentAI → http://localhost:${PORT}`);
-  console.log(`🤖 AI Engine: ${process.env.GROQ_API_KEY ? '✅ Groq LLaMA' : '❌ missing'}`);
-  console.log(`🗄️ Database: connected`);
-});
+
+initDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n🚀  TalentAI  →  http://localhost:${PORT}`);
+      console.log(`🤖  AI Engine: ${process.env.GROQ_API_KEY ? '✅ Groq LLaMA 3.1 (FREE)' : '❌ GROQ_API_KEY missing!'}`);
+      console.log(`🗄️   Database: ${process.env.DB_USER}@${process.env.DB_HOST}/${process.env.DB_NAME}\n`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ Failed to initialize DB — server NOT started:', err.message);
+    process.exit(1);
+  });
