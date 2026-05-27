@@ -587,9 +587,8 @@ export default function App() {
     </div>
   );
 
-  if (view==="login") return (
-    <LoginScreen onLogin={u=>{ setUser(u); setView("admin"); }}/>
-  );
+  // ✅ When admin login is clicked, show AdminPanel directly (it has its own login)
+if (view==="login") return <AdminPanel onLogin={u=>{ setUser(u); setView("admin"); }}/>;
 
   return (
     <div style={{ minHeight:"100vh", background:"#070d1a", color:"#f1f5f9",
@@ -649,7 +648,7 @@ export default function App() {
       {/* Body */}
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"26px 28px" }}>
         {view==="jobs"  && <JobsView/>}
-        {view==="admin" && user && <AdminPanel/>}
+{view==="admin" && <AdminPanel/>}
       </div>
 
     </div>
