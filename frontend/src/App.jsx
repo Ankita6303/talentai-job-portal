@@ -547,6 +547,36 @@ function JobsView() {
               border:"none", color:"#eff6ff", fontSize:15, fontWeight:700, cursor:"pointer" }}>
             Upload PDF & Get ATS Score →
           </button>
+
+          <button
+  onClick={async () => {
+    try {
+      const result = await api.mockInterview({
+        jobTitle: selected.title
+      });
+
+      console.log(result);
+      alert("AI Interview Generated");
+    } catch (err) {
+      alert(err.message);
+    }
+  }}
+  style={{
+    width:"100%",
+    padding:"12px",
+    marginTop:"10px",
+    borderRadius:8,
+    background:"#7c3aed",
+    border:"none",
+    color:"#fff",
+    fontSize:15,
+    fontWeight:700,
+    cursor:"pointer"
+  }}
+>
+  🎤 Start AI Interview
+</button>
+
           <p style={{ margin:"8px 0 0", fontSize:11, color:"#334155", textAlign:"center" }}>
             📄 PDF resume analyzed instantly — score shown in seconds
           </p>
@@ -640,6 +670,8 @@ if (view==="login") return <AdminPanel onLogin={u=>{ setUser(u); setView("admin"
                     background:"#1d4ed8", color:"#eff6ff", border:"none", cursor:"pointer" }}>
                   Admin Login
                 </button>
+
+                
             }
           </div>
         </div>
