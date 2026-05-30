@@ -448,8 +448,14 @@ function JobsView() {
   );
 
   return (
+
+
+  
     <div style={{ display:"grid", gridTemplateColumns:"360px 1fr", gap:22, alignItems:"start" }}>
       {/* Left: job list */}
+      
+
+
       <div>
         <input style={{ ...inp, marginBottom:12 }} placeholder="🔍  Search jobs, skills…"
           value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -556,7 +562,7 @@ function JobsView() {
       });
 
       console.log(result);
-      alert("AI Interview Generated");
+      alert(result.questions.join("\n\n"));
     } catch (err) {
       alert(err.message);
     }
@@ -602,7 +608,74 @@ function JobsView() {
 export default function App() {
   const [user, setUser]      = useState(null);
   const [view, setView]      = useState("jobs");
+  
   const [checking, setCheck] = useState(true);
+  
+
+  const speak = (text) => {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 1;
+  window.speechSynthesis.speak(utterance);
+};
+
+const startListening = (onResult) => {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Mic not supported in this browser");
+    return;
+  }
+  const startInterview = async (jobTitle) => {
+  try {
+    setInterviewActive(true);
+
+    const result = await api.mockInterview({ jobTitle });
+    const questions = result.questions;
+
+    const allAnswers = [];
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+
+      speak(q);
+
+      // wait 4 sec for question to speak
+      await new Promise((r) => setTimeout(r, 4000));
+
+      const answer = await startListening();
+
+      console.log("Q:", q);
+      console.log("A:", answer);
+
+      allAnswers.push({ question: q, answer });
+    }
+
+    setAnswers(allAnswers);
+    setInterviewActive(false);
+
+    alert("Interview Completed 🎉");
+
+    console.log("FINAL REPORT:", allAnswers);
+
+  } catch (err) {
+    setInterviewActive(false);
+    alert(err.message);
+  }
+};
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+
+  recognition.start();
+
+  recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    onResult(text);
+  };
+};
 
   useEffect(()=>{
     if (api.getToken()) {
@@ -686,3 +759,4 @@ if (view==="login") return <AdminPanel onLogin={u=>{ setUser(u); setView("admin"
     </div>
   );
 }
+
