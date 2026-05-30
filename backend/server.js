@@ -21,7 +21,7 @@ const upload = multer({
 app.use(cors({
   origin: [
     'http://localhost:5173','http://localhost:5174','http://localhost:5175',
-    'https://talentai-job-portal-2026.netlify.app'
+    'https://talentai-job-portal.vercel.app'
   ],
   methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
