@@ -19,10 +19,9 @@ const upload = multer({
 });
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173','http://localhost:5174','http://localhost:5175',
-    'https://talentai-job-portal.vercel.app'
-  ],
+  origin: function(origin, cb) {
+    cb(null, true); // Allow all origins — restrict to your domain in production
+  },
   methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true,
@@ -559,17 +558,28 @@ app.post('/build-resume', requirePremium, async (req, res) => {
 });
 
 // Mock Interview Questions (Premium)
-
-app.post('/mock-interview', async (req, res) => {
-  res.json({
-    questions: [
-      "Tell me about yourself",
-      "Explain Python OOP",
-      "What is Machine Learning?"
-    ]
-  });
+// Mock Interview — Real Groq AI (FIXED: was returning dummy hardcoded data)
+app.post('/mock-interview', upload.single('resume'), async (req, res) => {
+  const { job_title, resume_text } = req.body;
+  try {
+    const resumeText = req.file ? await extractText(req.file) : (resume_text || '');
+    const result = await getMockInterview(resumeText, job_title || 'Software Engineer');
+    res.json(result);
+  } catch (e) {
+    console.error('Mock interview error:', e.message);
+    // Fallback questions if Groq fails
+    res.json({
+      questions: [
+        { question: `Tell me about yourself and why you want this ${job_title || 'role'}.`, type:'Behavioral', tip:'Use the STAR method — Situation, Task, Action, Result.' },
+        { question: 'What is your greatest technical strength and how have you used it?', type:'Technical', tip:'Give a specific project example with measurable outcome.' },
+        { question: 'Describe a challenging project and how you overcame obstacles.', type:'Situational', tip:'Focus on your problem-solving process, not just the result.' },
+        { question: 'Where do you see yourself in 3 years?', type:'Behavioral', tip:'Align your goals with the company mission.' },
+        { question: 'Do you have any questions for us?', type:'Closing', tip:'Always have 2-3 thoughtful questions ready about the team or role.' },
+      ],
+      overall_advice: 'Speak clearly, use specific examples, and show enthusiasm for the role.'
+    });
+  }
 });
-
 
 // Auto Apply (Premium) — apply to multiple jobs at once
 app.post('/auto-apply', requirePremium, upload.single('resume'), async (req, res) => {
@@ -618,7 +628,7 @@ app.post('/subscribe/whatsapp', async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO whatsapp_subscribers (phone,name,user_id) VALUES ($1,$2,$3)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (phone) DO UPDATE SET active=true, name=EXCLUDED.name`,
       [phone, name||null, user_id||null]
     );
     // Send activation instructions
