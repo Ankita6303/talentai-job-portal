@@ -1,0 +1,14 @@
+{
+  "name": "talentai-job-portal",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && node server.js",
+    "postinstall": "cd frontend && npm install && npm run build"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "knex": "^3.2.10",
+    "node-fetch": "^3.3.2"
+  }
+}
