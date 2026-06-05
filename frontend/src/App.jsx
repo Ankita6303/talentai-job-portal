@@ -472,7 +472,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── CHANGE: JobsView now accepts onOpenTemplates prop ─────────
-function JobsView({ onOpenTemplates }) {    // ← CHANGE 4a
+function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillGap }) {    // ← CHANGE 4a
   const [jobs,setJobs]=useState([]);const [selected,setSelected]=useState(null);
   const [applying,setApplying]=useState(null);const [result,setResult]=useState(null);
   const [voiceJob,setVoiceJob]=useState(null);const [search,setSearch]=useState("");
@@ -527,24 +527,24 @@ function JobsView({ onOpenTemplates }) {    // ← CHANGE 4a
     🎤 AI Voice<br/>
     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Interview</span>
   </button>
-  <button onClick={() => setShowResume(true)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+  <button onClick={onOpenResume} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
     🤖 Build Resume<br/>
     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>AI-Powered</span>
   </button>
-  <button onClick={() => setShowTemplates(true)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+  <button onClick={onOpenTemplates} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
     📋 Templates<br/>
     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Browse Styles</span>
   </button>
 </div>
 
 {/* Convert Resume - full width */}
-<button onClick={() => setShowConverter(true)} style={{ width: "100%", marginTop: 10, padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+<button onClick={onOpenConverter} style={{ width: "100%", marginTop: 10, padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
   🔄 Convert Resume
   <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>— Old Resume → ATS Optimized</span>
 </button>
 
 {/* Skill Gap - full width */}
-<button onClick={() => setShowSkillGap(true)} style={{ width: "100%", padding: "12px", borderRadius: 8, marginTop: 10, background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", border: "1px solid #2563eb55", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px #7c3aed44" }}>
+<button onClick={onOpenSkillGap} style={{ width: "100%", padding: "12px", borderRadius: 8, marginTop: 10, background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", border: "1px solid #2563eb55", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px #7c3aed44" }}>
   🗺️ AI Skill Gap Mapper
   <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>— Free Course Roadmap</span>
 </button>
@@ -626,14 +626,41 @@ const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
       {/* Body */}
       <div style={{ maxWidth:1100,margin:"0 auto",padding:"26px 28px" }}>
         {/* CHANGE 3a: pass prop to JobsView */}
-        {view==="jobs"  && <JobsView onOpenTemplates={()=>setShowTemplates(true)}/>}
+        {view==="jobs" && <JobsView
+  onOpenTemplates={()=>setShowTemplates(true)}
+  onOpenResume={()=>setShowResume(true)}
+  onOpenConverter={()=>setShowConverter(true)}
+  onOpenSkillGap={()=>setShowSkillGap(true)}
+/>}
         {view==="admin" && <AdminPanel/>}
       </div>
 
       {/* CHANGE 3b: mount ResumeTemplatesPage overlay */}
-      {showTemplates && (
-        <ResumeTemplatesPage onClose={()=>setShowTemplates(false)}/>
-      )}
-    </div>
-  );
+      {/* CHANGE 3b: mount ResumeTemplatesPage overlay */}
+{showTemplates && (
+  <ResumeTemplatesPage
+    onClose={() => setShowTemplates(false)}
+  />
+)}
+
+{showResume && (
+  <ResumeBuilder
+    onClose={() => setShowResume(false)}
+    groqKey={import.meta.env.VITE_GROQ_API_KEY || ""}
+  />
+)}
+
+{showConverter && (
+  <ResumeConverter
+    onClose={() => setShowConverter(false)}
+  />
+)}
+
+{showSkillGap && (
+  <SkillGapMapper
+    onClose={() => setShowSkillGap(false)}
+  />
+)}
+</div>
+);
 }
