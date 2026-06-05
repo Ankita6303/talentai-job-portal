@@ -83,158 +83,230 @@ function ScoreRing({ score }) {
 // ── ResumePreview ─────────────────────────────────────────────
 function ResumePreview({ data }) {
   const { personal, summary, skills, experience, jobTitle, projects, education, certifications } = data;
-
+ 
+  const sectionHead = {
+    fontSize: 10.5,
+    fontWeight: 700,
+    color: "#1a1a2e",
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    borderBottom: "1.5px solid #1d4ed8",
+    paddingBottom: 1,
+    marginBottom: 3,
+    marginTop: 0,
+    fontFamily: "'Arial', sans-serif",
+  };
+ 
+  const bodyText = {
+    fontSize: 11,
+    color: "#2d2d2d",
+    lineHeight: 1.3,
+    fontFamily: "'Arial', sans-serif",
+  };
+ 
   return (
-    <div id="resume-preview" style={{
-      background: "#fff", color: "#1a1a2e", fontFamily: "'Georgia', serif",
-      padding: "40px 44px", maxWidth: 794, margin: "0 auto",
-      fontSize: 13, lineHeight: 1.6, boxShadow: "0 4px 40px rgba(0,0,0,0.4)",
-    }}>
-
-      {/* Header */}
-      <div style={{ borderBottom: "3px solid #1d4ed8", paddingBottom: 16, marginBottom: 18 }}>
-        <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em" }}>
-          {personal.name || "Your Name"}
-        </h1>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#1d4ed8", marginBottom: 8 }}>
-          {jobTitle || personal.title || "Professional Title"}
+    <>
+      {/* Inject print CSS globally */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        #resume-preview * {
+          font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        @media print {
+          @page {
+  size: A4;
+  margin: 8mm;
+}
+          #resume-preview {
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .no-break { page-break-inside: avoid; }
+        }
+      `}</style>
+ 
+      <div
+        id="resume-preview"
+style={{
+  background: "#ffffff",
+  color: "#1a1a2e",
+  fontFamily: "'Arial', 'Helvetica Neue', Helvetica, sans-serif",
+  padding: "10px 14px",
+  maxWidth: 794,
+  margin: "0 auto",
+  fontSize: 10.5,
+  lineHeight: 1.35,
+  boxShadow: "0 2px 30px rgba(0,0,0,0.18)",
+}}
+      >
+ 
+        {/* ── HEADER ────────────────────────────────────────── */}
+        <div className="no-break" style={{ marginBottom: 8 }}>
+          <h1 style={{
+            margin: "0 0 2px",
+            fontSize: 18,
+            fontWeight: 800,
+            color: "#0f172a",
+            letterSpacing: "-0.01em",
+            fontFamily: "'Arial Black', 'Arial', sans-serif",
+            lineHeight: 1.2,
+          }}>
+            {personal.name || "Your Name"}
+          </h1>
+          <div style={{
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: "#1d4ed8",
+            marginBottom: 4,
+            letterSpacing: "0.01em",
+          }}>
+            {jobTitle || personal.title || "Professional Title"}
+          </div>
+          <div style={{
+ 
+}}>
+            {personal.email    && <span>✉ {personal.email}</span>}
+            {personal.phone    && <span>📱 {personal.phone}</span>}
+            {personal.location && <span>📍 {personal.location}</span>}
+            {personal.linkedin && <span>🔗 {personal.linkedin}</span>}
+            {personal.github   && <span>💻 {personal.github}</span>}
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 12, color: "#475569" }}>
-          {personal.email && <span>✉ {personal.email}</span>}
-          {personal.phone && <span>📱 {personal.phone}</span>}
-          {personal.location && <span>📍 {personal.location}</span>}
-          {personal.linkedin && <span>🔗 {personal.linkedin}</span>}
-          {personal.github && <span>💻 {personal.github}</span>}
-        </div>
-      </div>
-
-      {/* Summary */}
-      {summary && (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 8 }}>
-            Professional Summary
-          </h2>
-          <p style={{ margin: 0, color: "#374151", lineHeight: 1.7 }}>{summary}</p>
-        </div>
-      )}
-      {/* Technical Skills — categorized */}
-      {skills?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 8 }}>
-            Technical Skills
-          </h2>
-          {typeof skills[0] === "object" ? (
-            skills.map((cat, i) => (
-              <p key={i} style={{ margin: "0 0 5px", fontSize: 13, color: "#374151" }}>
-                <strong style={{ color: "#0f172a" }}>{cat.category}:</strong>{" "}
-                {Array.isArray(cat.items) ? cat.items.join(", ") : cat.items}
-              </p>
-            ))
-          ) : (
-            <p style={{ margin: 0, fontSize: 13, color: "#374151" }}>{skills.join(", ")}</p>
-          )}
-        </div>
-      )}
-
-
-      {/* Experience */}
-      {experience?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 10 }}>
-            Work Experience
-          </h2>
-          {experience.map((exp, i) => (
-            <div key={i} style={{ marginBottom: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{exp.title}</div>
-                  <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
-                    {exp.company}{exp.location ? ` · ${exp.location}` : ""}
+ 
+        {/* ── SUMMARY ───────────────────────────────────────── */}
+        {summary && (
+          <div className="no-break" style={{ marginBottom: 4 }}>
+            <h2 style={sectionHead}>Professional Summary</h2>
+            <p style={{ ...bodyText, margin: 0, textAlign: "justify" }}>{summary}</p>
+          </div>
+        )}
+ 
+        {/* ── SKILLS ────────────────────────────────────────── */}
+        {skills?.length > 0 && (
+          <div className="no-break" style={{ marginBottom: 4 }}>
+            <h2 style={sectionHead}>Technical Skills</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {typeof skills[0] === "object"
+                ? skills.map((cat, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6, ...bodyText }}>
+                      <span style={{ fontWeight: 700, color: "#0f172a", minWidth: 110, flexShrink: 0 }}>
+                        {cat.category}:
+                      </span>
+                      <span style={{ color: "#374151" }}>
+                        {Array.isArray(cat.items) ? cat.items.join(", ") : cat.items}
+                      </span>
+                    </div>
+                  ))
+                : <p style={{ ...bodyText, margin: 0 }}>{skills.join(", ")}</p>
+              }
+            </div>
+          </div>
+        )}
+ 
+        {/* ── EXPERIENCE ────────────────────────────────────── */}
+        {experience?.length > 0 && (
+          <div style={{ marginBottom: 4 }}>
+            <h2 style={sectionHead}>Work Experience</h2>
+            {experience.map((exp, i) => (
+              <div key={i} className="no-break" style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 1 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#0f172a" }}>{exp.title}</div>
+                    <div style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600 }}>
+                      {exp.company}{exp.location ? ` · ${exp.location}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 10, marginTop: 2 }}>
+                    {exp.duration}
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", marginLeft: 10 }}>{exp.duration}</div>
-              </div>
-              {exp.bullets?.length > 0 && (
-                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                  {exp.bullets.map((b, j) => (
-                    <li key={j} style={{ color: "#374151", marginBottom: 3, fontSize: 13 }}>{b}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Key Projects */}
-      {projects?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 10 }}>
-            Key Projects
-          </h2>
-          {projects.map((proj, i) => (
-            <div key={i} style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{proj.name}</span>
-                  {proj.tech && (
-                    <span style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 500 }}> | {proj.tech}</span>
-                  )}
-                </div>
-                {proj.duration && (
-                  <span style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", marginLeft: 10 }}>{proj.duration}</span>
+                {exp.bullets?.length > 0 && (
+                  <ul style={{ margin: "2px 0 0", paddingLeft: 16 }}>
+                    {exp.bullets.map((b, j) => (
+                      <li key={j} style={{ ...bodyText, marginBottom: 2 }}>{b}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
-              {proj.bullets?.length > 0 && (
-                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                  {proj.bullets.map((b, j) => (
-                    <li key={j} style={{ color: "#374151", marginBottom: 2, fontSize: 13 }}>{b}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      
-      {/* Education */}
-      {education?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 10 }}>
-            Education
-          </h2>
-          {education.map((ed, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{ed.degree}</div>
-                <div style={{ fontSize: 12, color: "#475569" }}>
-                  {ed.institution}{ed.gpa ? ` · GPA: ${ed.gpa}` : ""}
+            ))}
+          </div>
+        )}
+ 
+        {/* ── PROJECTS ──────────────────────────────────────── */}
+        {projects?.length > 0 && (
+          <div style={{ marginBottom: 4 }}>
+            <h2 style={sectionHead}>Key Projects</h2>
+            {projects.map((proj, i) => (
+              <div key={i} className="no-break" style={{ marginBottom: 5 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 1 }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontWeight: 700, fontSize: 11.5, color: "#0f172a" }}>{proj.name}</span>
+                    {proj.tech && (
+                      <span style={{ fontSize: 10.5, color: "#1d4ed8", fontWeight: 600 }}> | {proj.tech}</span>
+                    )}
+                  </div>
+                  {proj.duration && (
+                    <span style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 10 }}>
+                      {proj.duration}
+                    </span>
+                  )}
                 </div>
+                {proj.bullets?.length > 0 && (
+                  <ul style={{ margin: "2px 0 0", paddingLeft: 16 }}>
+                    {proj.bullets.map((b, j) => (
+                      <li key={j} style={{ ...bodyText, marginBottom: 2 }}>{b}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <div style={{ fontSize: 12, color: "#64748b", whiteSpace: "nowrap", marginLeft: 10 }}>{ed.year}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Certifications */}
-      {certifications?.length > 0 && (
-        <div>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid #e2e8f0", paddingBottom: 4, marginBottom: 8 }}>
-            Certifications & Achievements
-          </h2>
-          {certifications.map((c, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 13 }}>
-              <span style={{ color: "#374151" }}> {c.name}</span>
-              <span style={{ color: "#64748b", fontSize: 12 }}>{c.issuer}{c.year ? ` · ${c.year}` : ""}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+ 
+        {/* ── EDUCATION ─────────────────────────────────────── */}
+        {education?.length > 0 && (
+          <div className="no-break" style={{ marginBottom: 5 }}>
+            <h2 style={sectionHead}>Education</h2>
+            {education.map((ed, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 11.5, color: "#0f172a" }}>{ed.degree}</div>
+                  <div style={{ fontSize: 10.5, color: "#4b5563" }}>
+                    {ed.institution}{ed.gpa ? ` · GPA: ${ed.gpa}` : ""}
+                  </div>
+                </div>
+                <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 10 }}>{ed.year}</div>
+              </div>
+            ))}
+          </div>
+        )}
+ 
+        {/* ── CERTIFICATIONS ────────────────────────────────── */}
+        {certifications?.length > 0 && (
+  <div>
+            <h2 style={sectionHead}>Certifications & Achievements</h2>
+            {certifications.map((c, i) => (
+              <div key={i} style={{
+                display: "flex", justifyContent: "space-between",
+                alignItems: "center", marginBottom: 2,
+              }}>
+                <span style={{ ...bodyText, fontWeight: 500 }}>▪ {c.name}</span>
+                <span style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 10 }}>
+                  {c.issuer}{c.year ? ` · ${c.year}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+ 
+      </div>
+    </>
   );
 }
+ 
 
 // ══════════════════════════════════════════════════════════════
 //  MAIN
@@ -442,17 +514,73 @@ Return ONLY raw JSON:
   };
 
   const printResume = () => {
-    const el = document.getElementById("resume-preview");
-    if (!el) return;
-    const w = window.open("", "_blank");
-    w.document.write(`<html><head><title>${personal.name} - Resume</title>
-      <style>body{margin:0;padding:20px;font-family:Georgia,serif;}
-      @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
-      </head><body>${el.outerHTML}</body></html>`);
-    w.document.close(); w.focus();
-    setTimeout(() => { w.print(); }, 500);
-  };
-
+  const el = document.getElementById("resume-preview");
+  if (!el) return;
+  const w = window.open("", "_blank");
+  w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${personal.name || "Resume"} - Resume</title>
+  <style>
+    /* Reset */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+    /* Force Arial everywhere — safe across all PDF viewers */
+    body {
+      font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
+      font-size: 11px;
+      line-height: 1.55;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 0;
+      margin: 0;
+    }
+ 
+    /* A4 page setup */
+    @page {
+      @page {
+  size: A4;
+  margin: 4mm;
+}
+    }
+ 
+    /* Container */
+    #resume-preview {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: "8px 10px"
+  background: #fff;
+}
+ 
+    /* Prevent section splits across pages */
+    .no-break { page-break-inside: avoid; }
+    h2        { page-break-after: avoid; }
+    li        { page-break-inside: avoid; }
+ 
+    /* Colour printing */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+ 
+    /* Remove box-shadow in print */
+    #resume-preview { box-shadow: none !important; }
+  </style>
+</head>
+<body>
+  ${el.outerHTML}
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 600);
+    };
+  </script>
+</body>
+</html>`);
+  w.document.close();
+};
   const copyAsText = () => {
     if (!resume) return;
     const skillsText = resume.skills?.length
@@ -500,6 +628,7 @@ ${resume.certifications.map(c => `${c.name} — ${c.issuer}${c.year ? ` (${c.yea
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#f1f5f9" }}>📄 ATS Resume Builder</h1>
+            
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>AI-powered · Groq LLaMA 3 · Tailored to your target job</p>
           </div>
           <button onClick={onClose} style={{

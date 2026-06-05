@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import PaymentModal from "./PaymentModal";
 
 // ── CONFIG ───────────────────────────────────────────────────
-const API = "https://talentai-job-portal.onrender.com";
+const API = import.meta.env.VITE_API_URL || "https://talentai-job-portal.onrender.com";
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || ""; // 🔑 Replace with your Groq API key
 const GROQ_MODEL = "llama-3.3-70b-versatile"; // Fast & capable — free on Groq
 
@@ -618,11 +619,17 @@ function AutomationTab({ isPremium, onUpgrade }) {
   const { show, Toast } = useToast();
 
   const toggle = (id) => {
-    const rule = rules.find(r => r.id === id);
-    if (rule.locked && !isPremium) { onUpgrade(); return; }
-    setRules(rs => rs.map(r => r.id === id ? { ...r, active: !r.active } : r));
-    show(rule.active ? "Rule disabled" : "Rule enabled", "info");
-  };
+  const rule = rules.find(r => r.id === id);
+  if (rule.locked && !isPremium) { onUpgrade(); return; }
+  const newActive = !rule.active;
+  setRules(rs => rs.map(r => r.id === id ? { ...r, active: newActive } : r));
+  show(newActive ? `✅ "${rule.title}" enabled` : `⏸ "${rule.title}" disabled`, newActive ? "success" : "info");
+
+  // Auto-reject rule: actually filter & warn
+  if (id === 3 && newActive) {
+    show("⚠️ Auto-reject rule ON — applicants with AI score < 40 will be auto-rejected on new submissions", "warning");
+  }
+};
 
   const [log] = useState([
     { time: "2h ago", action: "HR alert sent", detail: "New application: Ananya Iyer — Product Manager (score: 91)", ok: true },
@@ -685,7 +692,7 @@ function AutomationTab({ isPremium, onUpgrade }) {
 }
 
 // ── Subscription Tab ──────────────────────────────────────────
-function SubscriptionTab({ isPremium, onUpgrade }) {
+function SubscriptionTab({ isPremium, onUpgrade, onOpenPayment }) {
   const plans = [
     {
       name: "Free", price: "₹0", period: "forever", current: !isPremium, popular: false,
@@ -705,9 +712,71 @@ function SubscriptionTab({ isPremium, onUpgrade }) {
     },
   ];
 
-  const openRazorpay = (plan) => {
-    alert(`Razorpay checkout for ${plan.name} (${plan.price}/month)\n\nIntegrate with:\nRAZORPAY_KEY_ID=rzp_test_xxx\nRAZORPAY_KEY_SECRET=your_secret\n\nSee server.js for /payments/create-order endpoint.`);
-  };
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+const [selectedPlan, setSelectedPlan] = useState(null);
+
+const openRazorpay = (plan) => {
+  onOpenPayment();
+};
+if (showUpgradeModal && selectedPlan) return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 20, padding: 32, width: "100%", maxWidth: 480, boxShadow: "0 24px 60px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>Upgrade to {selectedPlan.name}</h2>
+          <button onClick={() => setShowUpgradeModal(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: T.muted }}>×</button>
+        </div>
+
+        {/* Price */}
+        <div style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", borderRadius: 14, padding: "20px 24px", marginBottom: 20, textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: "#c7d2fe", marginBottom: 4, fontWeight: 600 }}>HR Pro Plan</div>
+          <div style={{ fontSize: 38, fontWeight: 800, color: "#fff" }}>₹2,499<span style={{ fontSize: 16, fontWeight: 400, opacity: 0.8 }}>/month</span></div>
+          <div style={{ fontSize: 12, color: "#c7d2fe", marginTop: 4 }}>Cancel anytime · Instant activation</div>
+        </div>
+
+        {/* Payment options */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 12 }}>Choose payment method:</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* UPI */}
+            <button onClick={() => { window.open("upi://pay?pa=talentai@upi&pn=TalentAI&am=2499&cu=INR&tn=HR Pro Plan", "_blank"); }} style={{ padding: "12px 16px", border: "2px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 600, color: T.text }}>
+              <span style={{ fontSize: 22 }}>📱</span>
+              <div style={{ textAlign: "left" }}>
+                <div>Pay via UPI</div>
+                <div style={{ fontSize: 11, color: T.muted, fontWeight: 400 }}>Google Pay, PhonePe, Paytm, BHIM</div>
+              </div>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: T.primary, fontWeight: 700 }}>→</span>
+            </button>
+
+            {/* Bank Transfer */}
+            <button onClick={() => { setShowUpgradeModal(false); show("Bank details copied! Transfer ₹2,499 to: HDFC A/C 50100xxxxxxxx, IFSC: HDFC0001234, Name: TalentAI Pvt Ltd", "info"); navigator.clipboard?.writeText("HDFC A/C: 50100xxxxxxxx | IFSC: HDFC0001234 | Amount: ₹2,499 | Name: TalentAI Pvt Ltd"); }} style={{ padding: "12px 16px", border: "2px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 600, color: T.text }}>
+              <span style={{ fontSize: 22 }}>🏦</span>
+              <div style={{ textAlign: "left" }}>
+                <div>Bank Transfer / NEFT</div>
+                <div style={{ fontSize: 11, color: T.muted, fontWeight: 400 }}>Get account details instantly</div>
+              </div>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: T.primary, fontWeight: 700 }}>→</span>
+            </button>
+
+            {/* Contact sales */}
+            <button onClick={() => { window.open("mailto:sales@talentai.com?subject=HR Pro Upgrade&body=Hi, I want to upgrade to HR Pro plan for ₹2,499/month. Please share payment details.", "_blank"); setShowUpgradeModal(false); }} style={{ padding: "12px 16px", border: "2px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 600, color: T.text }}>
+              <span style={{ fontSize: 22 }}>📧</span>
+              <div style={{ textAlign: "left" }}>
+                <div>Email Sales Team</div>
+                <div style={{ fontSize: 11, color: T.muted, fontWeight: 400 }}>sales@talentai.com · Reply in 2hrs</div>
+              </div>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: T.primary, fontWeight: 700 }}>→</span>
+            </button>
+
+          </div>
+        </div>
+
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
+          ✅ After payment, email your transaction ID to <strong>activate@talentai.com</strong> — activated within 1 hour
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -762,7 +831,8 @@ export default function AdminPanel() {
   const [appFilter, setAppFilter] = useState("all");
   const [appSort, setAppSort] = useState("score");
   const [jobFilter, setJobFilter] = useState("all");
-  const [isPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const { show, Toast } = useToast();
 
   const fetchJobs = useCallback(async () => {
@@ -812,23 +882,36 @@ export default function AdminPanel() {
     if (selectedApp?.id === id) setSelectedApp(a => ({ ...a, status, recruiter_notes: notes }));
   };
 
-  const sendEmail = async (app) => {
-    if (!isPremium) { show("Upgrade to HR Pro to send emails", "warning"); return; }
-    try {
-      await fetch(`${API}/notify/email`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ application_id: app.id }) });
-      show(`Email sent to ${app.name}!`, "success");
-    } catch { show("Email failed — check RESEND_API_KEY", "error"); }
-  };
+  const sendEmail = (app) => {
+  if (!isPremium) { show("Upgrade to HR Pro to send emails", "warning"); return; }
+  const subject = encodeURIComponent(`Your application for ${app.job_title} — TalentAI`);
+  const body = encodeURIComponent(
+    `Hi ${app.name},\n\nThank you for applying for the ${app.job_title} position.\n\n` +
+    (app.status === "shortlisted"
+      ? `We're pleased to inform you that you've been shortlisted! Our team will reach out shortly to schedule an interview.\n`
+      : app.status === "rejected"
+      ? `After careful review, we regret to inform you that we will not be moving forward with your application at this time.\n`
+      : `We have received your application and it is currently under review. We'll be in touch soon.\n`) +
+    `\nBest regards,\nTalentAI HR Team`
+  );
+  window.open(`mailto:${app.email}?subject=${subject}&body=${body}`, "_blank");
+  show(`Email draft opened for ${app.name}!`, "success");
+};
 
-  const sendWhatsApp = async (app) => {
-    if (!isPremium) { show("Upgrade to HR Pro to send WhatsApp", "warning"); return; }
-    const phone = app.phone?.replace(/\D/g, "");
-    if (!phone) { show("No phone number on file", "error"); return; }
-    const msg = encodeURIComponent(`Hi ${app.name}, your application for ${app.job_title} has been received. We'll be in touch soon! — TalentAI`);
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${msg}&apikey=YOUR_KEY`;
-    try { await fetch(url); show(`WhatsApp sent to ${app.name}!`, "success"); }
-    catch { show("WhatsApp failed — check CallMeBot API key", "error"); }
-  };
+  const sendWhatsApp = (app) => {
+  if (!isPremium) { show("Upgrade to HR Pro to send WhatsApp", "warning"); return; }
+  const phone = app.phone?.replace(/\D/g, "");
+  if (!phone) { show("No phone number on file — add phone to applicant profile", "error"); return; }
+  const msg = encodeURIComponent(
+    `Hi ${app.name}! 👋\n\nThis is TalentAI HR regarding your application for *${app.job_title}*.\n\n` +
+    (app.status === "shortlisted"
+      ? `🎉 Great news — you've been *shortlisted*! We'll contact you shortly to schedule an interview.`
+      : `Your application is currently *under review*. We'll keep you updated.\n\nThank you for your interest!`) +
+    `\n\n— TalentAI HR Team`
+  );
+  window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  show(`WhatsApp opened for ${app.name}!`, "success");
+};
 
   const filteredApps = apps
     .filter(a => { if (appFilter === "advance") return a.ai_recommendation === "Advance to Interview"; if (appFilter === "hold") return a.ai_recommendation === "Hold"; if (appFilter === "reject") return a.ai_recommendation === "Reject"; return true; })
@@ -876,7 +959,7 @@ export default function AdminPanel() {
               <div style={{ background: T.sidebarBorder, borderRadius: 99, height: 4 }}><div style={{ background: T.sidebarActive, width: "30%", height: "100%", borderRadius: 99 }} /></div>
             </div>
           )}
-          <button onClick={() => setTab("subscription")} style={{ ...btn("#4338ca", "#c7d2fe"), width: "100%", textAlign: "center", marginBottom: 8, fontSize: 12 }}>👑 Upgrade</button>
+          <button onClick={() => setShowPayment(true)} style={{ ...btn("#4338ca", "#c7d2fe"), width: "100%", textAlign: "center", marginBottom: 8, fontSize: 12 }}>👑 Upgrade</button>
           <button onClick={handleLogout} style={{ ...btn(T.sidebarBorder, T.sidebarText), width: "100%", textAlign: "center", fontSize: 12 }}>Sign Out</button>
         </div>
       </aside>
@@ -895,7 +978,7 @@ export default function AdminPanel() {
               <StatCard label="Advance to Interview" value={stats?.by_recommendation?.["Advance to Interview"] ?? 0} color={T.info} />
               <StatCard label="Active Jobs" value={jobs.length} color={T.warning} />
             </div>
-            {!isPremium && <UpgradeBanner onUpgrade={() => setTab("subscription")} />}
+            {!isPremium && <UpgradeBanner onUpgrade={() => setShowPayment(true)} />}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div style={card}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: T.text }}>AI Recommendations</h3>
@@ -1076,7 +1159,7 @@ export default function AdminPanel() {
         )}
 
         {/* SUBSCRIPTION */}
-        {tab === "subscription" && <SubscriptionTab isPremium={isPremium} onUpgrade={() => show("Opening checkout…", "info")} />}
+        {tab === "subscription" && <SubscriptionTab isPremium={isPremium} onUpgrade={() => setShowPayment(true)} onOpenPayment={() => setShowPayment(true)} />}
       </main>
 
       {/* Job Form Modal */}
@@ -1155,6 +1238,18 @@ export default function AdminPanel() {
 
       {/* AI Interview Modal */}
       {interviewApp && <InterviewSimulator applicant={interviewApp} onClose={() => setInterviewApp(null)} />}
+        {showPayment && (
+  <PaymentModal
+    onClose={() => setShowPayment(false)}
+    onSuccess={() => {
+      setIsPremium(true);
+      setShowPayment(false);
+      show("🎉 HR Pro activated!", "success");
+    }}
+    userEmail={user.email || ""}
+    userName={user.name || ""}
+  />
+)}
     </div>
   );
 }

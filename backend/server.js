@@ -161,7 +161,7 @@ async function callGroq(prompt, systemPrompt = 'You are an expert. Return only v
     method: 'POST',
     headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant', temperature: 0.1, max_tokens: 1500,
+      model: 'llama-3.3-70b-versatile', temperature: 0.1, max_tokens: 1500,
       messages: [{ role:'system', content:systemPrompt }, { role:'user', content:prompt }],
     }),
   });
@@ -180,17 +180,39 @@ function parseJSON(raw) {
 async function screenResume(resumeText, job) {
   const skills       = Array.isArray(job.skills)       ? job.skills       : JSON.parse(job.skills       || '[]');
   const requirements = Array.isArray(job.requirements) ? job.requirements : JSON.parse(job.requirements || '[]');
-  const raw = await callGroq(`You are an expert ATS recruiter. Return ONLY raw JSON.
-JOB: ${job.title} | ${job.department}
-SKILLS: ${skills.join(', ')}
+
+  // Count how many required skills are actually in the resume
+  const resumeLower = resumeText.toLowerCase();
+  const matchedCount = skills.filter(s => resumeLower.includes(s.toLowerCase())).length;
+  const totalSkills = skills.length || 1;
+  const rawMatchPct = Math.round((matchedCount / totalSkills) * 100);
+
+  const raw = await callGroq(`You are a strict ATS resume screening system. Analyze this resume carefully and give an HONEST score.
+
+JOB TITLE: ${job.title}
+DEPARTMENT: ${job.department}  
+REQUIRED SKILLS: ${skills.join(', ')}
 REQUIREMENTS: ${requirements.join(' | ')}
-DESCRIPTION: ${job.description}
-RESUME: ${resumeText.slice(0,5000)}
-Return: {"ats_score":<0-100>,"score":<same>,"verdict":"<Strong Match|Good Match|Partial Match|Low Match>","summary":"<2-3 sentences>","matched_skills":[],"missing_skills":[],"experience_years":<number|null>,"education":"<qualification>","strengths":[],"concerns":[],"recommendation":"<Advance to Interview|Hold|Reject>","interview_questions":[],"keyword_match_percent":<0-100>,"formatting_score":<0-100>,"skills_gap":[],"resume_tips":"<3 specific improvements>"}`);
-  const parsed = parseJSON(raw);
-  parsed.ats_score = parsed.ats_score || parsed.score || 0;
-  parsed.score = parsed.ats_score;
-  return parsed;
+JOB DESCRIPTION: ${job.description}
+
+RESUME TEXT:
+${resumeText.slice(0, 6000)}
+
+SCORING RULES — follow these strictly:
+- Keyword match rate is ${rawMatchPct}% (${matchedCount} of ${totalSkills} required skills found)
+- If keyword match < 30%: ats_score must be between 20-45
+- If keyword match 30-50%: ats_score must be between 45-65  
+- If keyword match 50-70%: ats_score must be between 60-75
+- If keyword match 70-85%: ats_score must be between 72-85
+- If keyword match > 85%: ats_score can be 85-97
+- Penalize heavily for: no quantified achievements, missing contact info, very short resume, irrelevant experience
+- Reward for: metrics in bullets, matching job title, relevant education, certifications matching JD
+- NEVER give 85 by default. Calculate based on actual resume content.
+- A fresher ITI/diploma resume for a senior ML role should score 15-35
+- An experienced ML engineer resume should score 70-92
+
+Return ONLY raw JSON, no markdown:
+{"ats_score":<realistic 0-100 based on rules above>,"score":<same>,"verdict":"<Strong Match|Good Match|Partial Match|Low Match>","summary":"<2-3 honest sentences about fit>","matched_skills":[],"missing_skills":[],"experience_years":<number|null>,"education":"<qualification>","strengths":[],"concerns":[],"recommendation":"<Advance to Interview|Hold|Reject>","interview_questions":[],"keyword_match_percent":${rawMatchPct},"formatting_score":<40-95>,"skills_gap":[],"resume_tips":"<3 specific improvements>"}`);
 }
 
 async function buildAIResume(userInput) {
@@ -326,7 +348,7 @@ app.post('/auth/student/register', async (req, res) => {
       </ul>
       <div style="background:#f1f5f9;border-radius:8px;padding:14px;margin:16px 0;border-left:4px solid #1d4ed8;">
         <p style="margin:0;font-weight:600;color:#1d4ed8;">Upgrade to Premium</p>
-        <p style="margin:6px 0 0;color:#475569;font-size:13px;">Unlock full ATS report, AI mock interview, resume builder and more for just ₹199/month.</p>
+        <p style="margin:6px 0 0;color:#475569;font-size:13px;">Unlock full ATS report, AI mock interview, resume builder and more for just ₹2499/month.</p>
       </div>`) });
     res.status(201).json({ token, user });
   } catch (e) {
@@ -507,7 +529,7 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
         </div>
         <p style="color:#475569;line-height:1.6;">${aiResult.summary}</p>
         ${userPlan==='free'?`<div style="background:#1e3a5f;border-radius:8px;padding:14px;margin-top:16px;">
-          <p style="margin:0;font-weight:600;color:#60a5fa;">🔒 Upgrade to Premium — ₹199/month</p>
+          <p style="margin:0;font-weight:600;color:#60a5fa;">🔒 Upgrade to Premium — ₹2499/month</p>
           <p style="margin:6px 0 0;color:#94a3b8;font-size:13px;">Unlock: Full ATS report • Skills gap roadmap • Mock interview • Resume builder</p>
         </div>`:''}`)
     });
@@ -680,24 +702,51 @@ app.delete('/subscribe/whatsapp', async (req, res) => {
 
 // ════════════════════ PAYMENT (Razorpay) ════════════════════
 
+const Razorpay = require('razorpay');
+
 app.post('/payment/create-order', requireAuth, async (req, res) => {
   const { plan } = req.body;
-  const plans = { premium_monthly:199, premium_yearly:1499 };
-  if (!plans[plan]) return res.status(400).json({ error:'Invalid plan' });
-  // Save pending payment
+  const plans = { 
+    premium_monthly: 249900,  // ₹2499 in paise
+    premium_yearly: 1499900   // ₹14999 in paise
+  };
+  if (!plans[plan]) return res.status(400).json({ error: 'Invalid plan' });
+
   try {
-    const r = await pool.query(
+    // 1. Save to DB
+    const dbRow = await pool.query(
       'INSERT INTO payments (user_id,plan,amount,status) VALUES ($1,$2,$3,$4) RETURNING id',
       [req.user.id, plan, plans[plan], 'pending']
     );
-    res.json({
-      payment_id: r.rows[0].id,
-      amount:     plans[plan] * 100, // paise
-      currency:   'INR',
-      plan,
-      razorpay_key: process.env.RAZORPAY_KEY_ID || 'rzp_test_xxxx',
+
+    // 2. Create real Razorpay order
+    const instance = new Razorpay({
+      key_id:     process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
-  } catch (e) { res.status(500).json({ error:e.message }); }
+
+    const order = await instance.orders.create({
+      amount:   plans[plan],
+      currency: 'INR',
+      receipt:  dbRow.rows[0].id,
+    });
+
+    console.log('✅ Razorpay order created:', order.id, 'amount:', order.amount);
+
+    // 3. Return order_id to frontend
+    res.json({
+      payment_id:   dbRow.rows[0].id,
+      order_id:     order.id,        // e.g. order_XXXXXXXXXXXXXXX
+      amount:       order.amount,    // in paise
+      currency:     'INR',
+      plan,
+      razorpay_key: process.env.RAZORPAY_KEY_ID,
+    });
+
+  } catch (e) {
+    console.error('❌ Razorpay order error:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/payment/verify', requireAuth, async (req, res) => {
