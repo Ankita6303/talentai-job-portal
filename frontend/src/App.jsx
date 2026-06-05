@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "./api.js";
 import AdminPanel from "./AdminPanel.jsx";
 import ResumeTemplatesPage from "./ResumeTemplatesPage.jsx"; // ← CHANGE 1
-
+import ResumeBuilder from "./ResumeBuilder.jsx";
+import ResumeConverter from "./ResumeConverter.jsx";
+import SkillGapMapper from "./Skillgapmapper.jsx";
+import PaymentModal from "./PaymentModal.jsx";
 const BACKEND = "https://talentai-job-portal.onrender.com";
 
 const DEPT = {
@@ -514,24 +517,41 @@ function JobsView({ onOpenTemplates }) {    // ← CHANGE 4a
           {(Array.isArray(selected.skills)?selected.skills:[]).length>0&&<><p style={{ margin:"0 0 8px",fontSize:11,color:"#475569",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Core Skills</p><div style={{ display:"flex",flexWrap:"wrap",gap:6,marginBottom:18 }}>{(Array.isArray(selected.skills)?selected.skills:[]).map(s=><Pill key={s} label={s}/>)}</div></>}
           {(Array.isArray(selected.requirements)?selected.requirements:[]).length>0&&<><p style={{ margin:"0 0 8px",fontSize:11,color:"#475569",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Requirements</p><ul style={{ margin:"0 0 22px",paddingLeft:18 }}>{(Array.isArray(selected.requirements)?selected.requirements:[]).map((r,i)=><li key={i} style={{ fontSize:13,color:"#94a3b8",marginBottom:5 }}>{r}</li>)}</ul></>}
 
-          {/* Apply button */}
-          <button onClick={()=>setApplying(selected)} style={{ width:"100%",padding:"12px",borderRadius:8,background:"#1d4ed8",border:"none",color:"#eff6ff",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:10 }}>
-            Upload PDF & Get ATS Score →
-          </button>
+          {/* 2x2 button grid */}
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
+  <button onClick={() => setApplying(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+    📄 Upload PDF<br/>
+    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Get ATS Score →</span>
+  </button>
+  <button onClick={() => setVoiceJob(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+    🎤 AI Voice<br/>
+    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Interview</span>
+  </button>
+  <button onClick={() => setShowResume(true)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+    🤖 Build Resume<br/>
+    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>AI-Powered</span>
+  </button>
+  <button onClick={() => setShowTemplates(true)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+    📋 Templates<br/>
+    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Browse Styles</span>
+  </button>
+</div>
 
-          {/* Voice interview button */}
-          <button onClick={()=>setVoiceJob(selected)} style={{ width:"100%",padding:"13px",borderRadius:8,background:"linear-gradient(135deg,#7c3aed,#4f46e5)",border:"none",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"0 4px 20px #7c3aed44",marginBottom:10 }}>
-            🎤 Start AI Voice Interview
-          </button>
+{/* Convert Resume - full width */}
+<button onClick={() => setShowConverter(true)} style={{ width: "100%", marginTop: 10, padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+  🔄 Convert Resume
+  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>— Old Resume → ATS Optimized</span>
+</button>
 
-          {/* ── CHANGE 4b: Browse Resume Templates button ── */}
-          <button onClick={onOpenTemplates} style={{ width:"100%",padding:"12px",borderRadius:8,background:"linear-gradient(135deg,#0f766e,#0d9488)",border:"none",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
-            📋 Browse Resume Templates
-          </button>
+{/* Skill Gap - full width */}
+<button onClick={() => setShowSkillGap(true)} style={{ width: "100%", padding: "12px", borderRadius: 8, marginTop: 10, background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", border: "1px solid #2563eb55", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px #7c3aed44" }}>
+  🗺️ AI Skill Gap Mapper
+  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>— Free Course Roadmap</span>
+</button>
 
-          <p style={{ margin:"8px 0 0",fontSize:11,color:"#334155",textAlign:"center" }}>
-            🎤 Groq AI · Real-time feedback · Chrome only
-          </p>
+<p style={{ margin: "10px 0 0", fontSize: 11, color: "#334155", textAlign: "center" }}>
+  🎤 Powered by Groq AI · Chrome only for mic
+</p>
         </div>
       )}
       {applying&&<ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{setApplying(null);setResult({data:res.ai_result,name:res.application.name,jobTitle:applying.title});}}/>}
@@ -546,7 +566,10 @@ export default function App() {
   const [user,setUser]             = useState(null);
   const [view,setView]             = useState("jobs");
   const [checking,setCheck]        = useState(true);
-  const [showTemplates,setShowTemplates] = useState(false); // ← CHANGE 2
+  const [showTemplates,setShowTemplates] = useState(false);
+  const [showResume, setShowResume] = useState(false);
+const [showConverter, setShowConverter] = useState(false);
+const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
 
   useEffect(()=>{
     if(api.getToken()){api.me().then(setUser).catch(()=>api.clearToken()).finally(()=>setCheck(false));}
@@ -585,10 +608,8 @@ export default function App() {
               </button>
             ))}
 
-            {/* ── Also add Templates in navbar ── */}
-            <button onClick={()=>setShowTemplates(true)} style={{ background:"none",border:"none",color:"#0d9488",padding:"6px 14px",borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer" }}>
-              📋 Templates
-            </button>
+           
+           
           </div>
           <div style={{ marginLeft:"auto" }}>
             {user
