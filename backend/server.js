@@ -214,7 +214,9 @@ SCORING RULES — follow these strictly:
 - An experienced ML engineer resume should score 70-92
 
 Return ONLY raw JSON, no markdown:
-{"ats_score":<realistic 0-100 based on rules above>,"score":<same>,"verdict":"<Strong Match|Good Match|Partial Match|Low Match>","summary":"<2-3 honest sentences about fit>","matched_skills":[],"missing_skills":[],"experience_years":<number|null>,"education":"<qualification>","strengths":[],"concerns":[],"recommendation":"<Advance to Interview|Hold|Reject>","interview_questions":[],"keyword_match_percent":${rawMatchPct},"formatting_score":<40-95>,"skills_gap":[],"resume_tips":"<3 specific improvements>"}`);
+{"ats_score":<realistic 0-100 based on rules above>,"score":<same>,"verdict":"<Strong Match|Good Match|Partial Match|Low Match>","summary":"<2-3 honest sentences about fit>","matched_skills":[],"missing_skills":[],"experience_years":<number|null>,"education":"<qualification>","strengths":[],"concerns":[],"recommendation":"<Advance to Interview|Hold|Reject>","interview_questions":[],"keyword_match_percent":${rawMatchPct},"formatting_score":<40-95>,"skills_gap":[], "resume_tips":"<3 specific improvements>"}`);
+
+  return parseJSON(raw);
 }
 
 async function buildAIResume(userInput) {
@@ -914,21 +916,7 @@ app.get('/stats', requireAdmin, async (req, res) => {
       by_recommendation: Object.fromEntries(byRec.rows.map(r=>[r.ai_recommendation,Number(r.count)])),
       by_job: byJob.rows,
     });
-  } catch (e) {
-  console.error('AI screening error:', e.message);
-  aiResult = {
-    ats_score: 50, score: 50,
-    verdict: "Partial Match",
-    summary: "Resume received. AI analysis unavailable temporarily.",
-    matched_skills: [], missing_skills: [],
-    experience_years: null, strengths: [], concerns: [],
-    recommendation: "Hold",
-    interview_questions: [],
-    keyword_match_percent: 50,
-    formatting_score: 60,
-    skills_gap: [], resume_tips: ""
-  };
-}
+ } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════ START ════════════════════

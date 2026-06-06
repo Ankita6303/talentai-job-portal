@@ -354,10 +354,9 @@ function ScoreBar({ label, value, color }) {
   );
 }
 function ATSModal({ result, name, jobTitle, onClose }) {
-  if (!result) return null;
-  const safeResult = result || {};
-  const recColor = rc(safeResult.recommendation) || "#64748b";
-  const score = safeResult.ats_score ?? safeResult.score ?? 0;
+ if (!result) return null;
+const recColor = rc(result?.recommendation || "Hold");
+const score    = result?.ats_score ?? result?.score ?? result?.ats ?? 0;
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20 }}>
       <div style={{ background:"#0c1220",border:"1px solid #1e293b",borderRadius:18,width:"100%",maxWidth:600,maxHeight:"92vh",overflow:"auto",padding:28 }}>
@@ -407,7 +406,7 @@ function ApplyModal({ job, onClose, onSuccess }) {
     if(!name.trim()||!email.trim())return setError("Name and email required");
     if(!file&&!paste.trim())return setError("Upload PDF or paste resume");
     setLoading(true);setStep("analyzing");setError("");
-    try{const res=await api.apply({job_id:job.id,name,email,phone,resumeFile:file||undefined,resume_text:!file?paste:undefined});onSuccess(res);}
+    try{const res=await api.apply({job_id:job.id,name,email,phone,resumeFile:file||undefined,resume_text:!file?paste:undefined});console.log("API response:", JSON.stringify(res, null, 2));onSuccess(res);}
     catch(e){setError(e.message);setStep("form");}setLoading(false);
   };
   return (
@@ -557,14 +556,17 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
 </p>
         </div>
       )}
-      {applying && <ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{
-        setApplying(null);
-        try {
-          const aiResult = res?.ai_result || res?.data;
-          const appName = res?.application?.name || res?.name || "Applicant";
-          if (aiResult) setResult({ data: aiResult, name: appName, jobTitle: applying.title });
-        } catch(e) { console.error("Apply error:", e, res); }
-      }}/>}
+      {applying && <ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res => {
+  setApplying(null);
+  // Handle different response shapes from backend
+  const aiResult = res.ai_result || res.result || res.data || res;
+  const appName  = res.application?.name || res.name || "Applicant";
+  setResult({
+    data: aiResult,
+    name: appName,
+    jobTitle: applying.title,
+  });
+}}/>}
       {result && <ATSModal result={result.data} name={result.name} jobTitle={result.jobTitle} onClose={()=>setResult(null)}/>}
       {voiceJob && <VoiceInterviewModal job={voiceJob} onClose={()=>setVoiceJob(null)}/>}
     </div>
