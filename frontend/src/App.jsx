@@ -6,6 +6,7 @@ import ResumeBuilder from "./ResumeBuilder.jsx";
 import ResumeConverter from "./ResumeConverter.jsx";
 import SkillGapMapper from "./Skillgapmapper.jsx";
 import PaymentModal from "./PaymentModal.jsx";
+import StudentPortal from "./StudentPortal.jsx";
 const BACKEND = "https://talentai-job-portal.onrender.com";
 
 const DEPT = {
@@ -614,7 +615,7 @@ const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
             <span style={{ fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:4,background:"#1e3a5f",color:"#60a5fa" }}>AI-POWERED</span>
           </div>
           <div style={{ display:"flex",gap:2,marginLeft:8 }}>
-            {[{id:"jobs",icon:"💼",label:"Browse Jobs"},...(user?[{id:"admin",icon:"📊",label:"Admin Dashboard"}]:[])].map(t=>(
+            {[{id:"jobs",icon:"💼",label:"Browse Jobs"},{id:"student",icon:"🎓",label:"My Profile"},...(user?[{id:"admin",icon:"📊",label:"Admin Dashboard"}]:[])].map(t=>(
               <button key={t.id} onClick={()=>setView(t.id)} style={{ background:view===t.id?"#1e293b":"none",border:"none",color:view===t.id?"#f1f5f9":"#64748b",padding:"6px 14px",borderRadius:6,fontSize:13,fontWeight:view===t.id?600:400,cursor:"pointer" }}>
                 {t.icon} {t.label}
               </button>
@@ -644,7 +645,8 @@ const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
   onOpenConverter={()=>setShowConverter(true)}
   onOpenSkillGap={()=>setShowSkillGap(true)}
 />}
-        {view==="admin" && <AdminPanel/>}
+{view==="admin" && <AdminPanel/>}
+{view==="student" && <StudentPortal onClose={()=>setView("jobs")}/>}
       </div>
 
       {/* CHANGE 3b: mount ResumeTemplatesPage overlay */}
