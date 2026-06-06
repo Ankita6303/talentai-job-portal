@@ -585,9 +585,18 @@ const [showConverter, setShowConverter] = useState(false);
 const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
 
   useEffect(()=>{
-    if(api.getToken()){api.me().then(setUser).catch(()=>api.clearToken()).finally(()=>setCheck(false));}
-    else{setCheck(false);}
-  },[]);
+  if(api.getToken()){api.me().then(setUser).catch(()=>api.clearToken()).finally(()=>setCheck(false));}
+  else{setCheck(false);}
+},[]);
+
+useEffect(()=>{
+  const handler = (e) => {
+    // Secret: Ctrl + Shift + A opens admin login
+    if(e.ctrlKey && e.shiftKey && e.key === "A") setView("login");
+  };
+  window.addEventListener("keydown", handler);
+  return () => window.removeEventListener("keydown", handler);
+},[]);
 
   if(checking)return <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#070d1a" }}><Spinner/></div>;
   if(view==="login")return <AdminPanel onLogin={u=>{setUser(u);setView("admin");}}/>;
@@ -625,14 +634,13 @@ const [showSkillGap, setShowSkillGap] = useState(false); // ← CHANGE 2
            
           </div>
           <div style={{ marginLeft:"auto" }}>
-            {user
-              ?<div style={{ display:"flex",alignItems:"center",gap:10 }}>
-                <span style={{ fontSize:13,color:"#64748b" }}>{user.name}</span>
-                <button onClick={()=>{api.clearToken();setUser(null);setView("jobs");}} style={{ fontSize:12,padding:"5px 12px",borderRadius:6,background:"none",border:"1px solid #1e293b",color:"#94a3b8",cursor:"pointer" }}>Sign out</button>
-              </div>
-              :<button onClick={()=>setView("login")} style={{ fontSize:13,fontWeight:600,padding:"6px 16px",borderRadius:6,background:"#1d4ed8",color:"#eff6ff",border:"none",cursor:"pointer" }}>Admin Login</button>
-            }
-          </div>
+  {user && (
+    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+      <span style={{ fontSize:13,color:"#64748b" }}>{user.name}</span>
+      <button onClick={()=>{api.clearToken();setUser(null);setView("jobs");}} style={{ fontSize:12,padding:"5px 12px",borderRadius:6,background:"none",border:"1px solid #1e293b",color:"#94a3b8",cursor:"pointer" }}>Sign out</button>
+    </div>
+  )}
+</div>
         </div>
       </div>
 
