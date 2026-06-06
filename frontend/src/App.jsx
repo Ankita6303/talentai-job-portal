@@ -521,8 +521,8 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
   <button onClick={() => setApplying(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
     📄 Upload PDF<br/>
-    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Get ATS Score →</span>
-  </button>
+     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Get ATS Score →</span>
+</button>
   <button onClick={() => setVoiceJob(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
     🎤 AI Voice<br/>
     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Interview</span>
@@ -554,15 +554,16 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
 </p>
         </div>
       )}
-      onSuccess={res => {
-  setApplying(null);
-  if (res?.ai_result && res?.application) {
-    setResult({ data: res.ai_result, name: res.application.name, jobTitle: applying.title });
-  } else {
-    console.error("Unexpected response shape:", res);
-  }
-}}
-      {voiceJob&&<VoiceInterviewModal job={voiceJob} onClose={()=>setVoiceJob(null)}/>}
+      {applying && <ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{
+        setApplying(null);
+        try {
+          const aiResult = res?.ai_result || res?.data;
+          const appName = res?.application?.name || res?.name || "Applicant";
+          if (aiResult) setResult({ data: aiResult, name: appName, jobTitle: applying.title });
+        } catch(e) { console.error("Apply error:", e, res); }
+      }}/>}
+      {result && <ATSModal result={result.data} name={result.name} jobTitle={result.jobTitle} onClose={()=>setResult(null)}/>}
+      {voiceJob && <VoiceInterviewModal job={voiceJob} onClose={()=>setVoiceJob(null)}/>}
     </div>
   );
 }
