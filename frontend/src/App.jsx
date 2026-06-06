@@ -354,6 +354,7 @@ function ScoreBar({ label, value, color }) {
   );
 }
 function ATSModal({ result, name, jobTitle, onClose }) {
+  if (!result) return null;
   const recColor=rc(result.recommendation),score=result.ats_score??result.score??0;
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20 }}>

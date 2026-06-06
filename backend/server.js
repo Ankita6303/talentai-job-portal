@@ -518,10 +518,26 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
     const dup = await pool.query('SELECT id FROM applications WHERE job_id=$1 AND email=$2', [job_id,email.toLowerCase()]);
     if (dup.rows.length) return res.status(409).json({ error:'Already applied for this position' });
 
-    let aiResult;
-    try { aiResult = await screenResume(resumeText, jRes.rows[0]); }
-    catch (e) { return res.status(500).json({ error:'AI screening failed: '+e.message }); }
-
+   let aiResult;
+try { 
+  aiResult = await screenResume(resumeText, jRes.rows[0]); 
+} catch (e) { 
+  console.error('AI screening failed:', e.message);
+  // Fallback so application still saves
+  aiResult = {
+    ats_score: 50, score: 50,
+    verdict: "Partial Match",
+    summary: "AI screening temporarily unavailable. Please review manually.",
+    matched_skills: [], missing_skills: [],
+    experience_years: null, strengths: [], concerns: [],
+    recommendation: "Hold",
+    interview_questions: [],
+    keyword_match_percent: 50,
+    formatting_score: 60,
+    skills_gap: [],
+    resume_tips: "Please retry later for full AI analysis."
+  };
+}
     // Get user plan to decide what to return
     let userPlan = 'free';
     if (req.headers.authorization) {
