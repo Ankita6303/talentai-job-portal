@@ -554,8 +554,14 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
 </p>
         </div>
       )}
-      {applying&&<ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{setApplying(null);setResult({data:res.ai_result,name:res.application.name,jobTitle:applying.title});}}/>}
-      {result&&<ATSModal result={result.data} name={result.name} jobTitle={result.jobTitle} onClose={()=>setResult(null)}/>}
+      onSuccess={res => {
+  setApplying(null);
+  if (res?.ai_result && res?.application) {
+    setResult({ data: res.ai_result, name: res.application.name, jobTitle: applying.title });
+  } else {
+    console.error("Unexpected response shape:", res);
+  }
+}}
       {voiceJob&&<VoiceInterviewModal job={voiceJob} onClose={()=>setVoiceJob(null)}/>}
     </div>
   );

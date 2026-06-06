@@ -232,6 +232,7 @@ Return JSON: {"questions":[{"question":"<q>","type":"<Technical|Behavioral|Situa
 }
 
 async function getSkillsGapAnalysis(resumeText, jobTitle, requiredSkills) {
+
   const raw = await callGroq(`Analyze skill gaps for ${jobTitle}.
 Required skills: ${requiredSkills.join(', ')}
 Resume: ${resumeText.slice(0,3000)}
@@ -295,6 +296,37 @@ const emailBase = (body) => `<div style="font-family:Arial,sans-serif;max-width:
 // ══════════════════════════════════════════════════════════════
 
 app.get('/health', (req, res) => res.json({ status:'ok', time:new Date() }));
+
+// ── AI Voice Interview routes ──────────────────────────────
+app.post('/ai/interview-questions', async (req, res) => {
+  const { jobTitle, skills = [] } = req.body;
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 600,
+      messages: [
+        { role: 'system', content: 'You are an expert HR interviewer. Return ONLY a valid JSON array of 5 question strings. No markdown.' },
+        { role: 'user', content: `Generate 5 interview questions for: ${jobTitle}. Skills: ${skills.join(', ')}. Mix: 1 intro, 2 technical, 1 situational, 1 motivation. Return ONLY: ["Q1?","Q2?","Q3?","Q4?","Q5?"]` },
+      ],
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/ai/evaluate-answer', async (req, res) => {
+  const { question, answer, jobTitle } = req.body;
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 300,
+      messages: [
+        { role: 'system', content: 'You are an expert HR interviewer. Return ONLY valid JSON, no markdown.' },
+        { role: 'user', content: `Job: ${jobTitle}\nQuestion: ${question}\nAnswer: "${answer}"\nReturn ONLY: {"score":7,"rating":"Good","feedback":"2 sentences.","tip":"1 tip."}` },
+      ],
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ── TEST EMAIL (remove after testing) ──
 app.get('/test-email', async (req, res) => {
