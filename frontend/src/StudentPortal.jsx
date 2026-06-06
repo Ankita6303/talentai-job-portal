@@ -209,7 +209,7 @@ function ProfileForm({ profile, onSave, onCancel }) {
           <div><label style={lbl}>Graduation Year</label>
             <select style={{ ...inp }} value={form.graduation_year} onChange={e => set("graduation_year", e.target.value)}>
               <option value="">Select year</option>
-              {[2023,2024,2025,2026,2027,2028].map(y => <option key={y}>{y}</option>)}
+              {[2023,2024,2025,2026,2027,2028,2029,2030].map(y => <option key={y}>{y}</option>)}
             </select>
           </div>
           <div><label style={lbl}>Portfolio Website</label><input style={inp} placeholder="https://ankita.dev" value={form.portfolio} onChange={e => set("portfolio", e.target.value)} /></div>
