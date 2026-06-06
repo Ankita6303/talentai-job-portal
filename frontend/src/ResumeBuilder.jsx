@@ -134,11 +134,11 @@ style={{
   background: "#ffffff",
   color: "#1a1a2e",
   fontFamily: "'Arial', 'Helvetica Neue', Helvetica, sans-serif",
-  padding: "10px 14px",
+  padding: "6px 10px",
   maxWidth: 794,
   margin: "0 auto",
-  fontSize: 10.5,
-  lineHeight: 1.35,
+  fontSize: 10,
+  lineHeight: 1.25,
   boxShadow: "0 2px 30px rgba(0,0,0,0.18)",
 }}
       >
@@ -529,8 +529,8 @@ Return ONLY raw JSON:
     /* Force Arial everywhere — safe across all PDF viewers */
     body {
       font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif !important;
-      font-size: 11px;
-      line-height: 1.55;
+      font-size: 10px;
+      line-height: 1.25;
       color: #1a1a2e;
       background: #fff;
       padding: 0;
@@ -539,10 +539,9 @@ Return ONLY raw JSON:
  
     /* A4 page setup */
     @page {
-      @page {
-  size: A4;
-  margin: 4mm;
-}
+      size: A4;
+      margin: 3mm;
+    }
     }
  
     /* Container */
