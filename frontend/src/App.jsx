@@ -355,7 +355,9 @@ function ScoreBar({ label, value, color }) {
 }
 function ATSModal({ result, name, jobTitle, onClose }) {
   if (!result) return null;
-  const recColor=rc(result.recommendation),score=result.ats_score??result.score??0;
+  const safeResult = result || {};
+  const recColor = rc(safeResult.recommendation) || "#64748b";
+  const score = safeResult.ats_score ?? safeResult.score ?? 0;
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20 }}>
       <div style={{ background:"#0c1220",border:"1px solid #1e293b",borderRadius:18,width:"100%",maxWidth:600,maxHeight:"92vh",overflow:"auto",padding:28 }}>
@@ -520,7 +522,7 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
 
           {/* 2x2 button grid */}
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
-  <button onClick={() => setApplying(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
+  <button onClick={() => { setResult(null); setApplying(selected); }} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
     📄 Upload PDF<br/>
      <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Get ATS Score →</span>
 </button>

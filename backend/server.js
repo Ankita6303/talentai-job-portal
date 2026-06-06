@@ -914,7 +914,21 @@ app.get('/stats', requireAdmin, async (req, res) => {
       by_recommendation: Object.fromEntries(byRec.rows.map(r=>[r.ai_recommendation,Number(r.count)])),
       by_job: byJob.rows,
     });
-  } catch (e) { res.status(500).json({ error:e.message }); }
+  } catch (e) {
+  console.error('AI screening error:', e.message);
+  aiResult = {
+    ats_score: 50, score: 50,
+    verdict: "Partial Match",
+    summary: "Resume received. AI analysis unavailable temporarily.",
+    matched_skills: [], missing_skills: [],
+    experience_years: null, strengths: [], concerns: [],
+    recommendation: "Hold",
+    interview_questions: [],
+    keyword_match_percent: 50,
+    formatting_score: 60,
+    skills_gap: [], resume_tips: ""
+  };
+}
 });
 
 // ════════════════════ START ════════════════════
