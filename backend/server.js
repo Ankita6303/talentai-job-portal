@@ -919,20 +919,6 @@ app.get('/stats', requireAdmin, async (req, res) => {
  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Student Profile ──────────────────────────────────────────
-app.get('/student/profile', requireAuth, async (req, res) => {
-  try {
-    const r = await pool.query('SELECT profile FROM users WHERE id=$1', [req.user.id]);
-    res.json(r.rows[0]?.profile || {});
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/student/profile', requireAuth, async (req, res) => {
-  try {
-    await pool.query('UPDATE users SET profile=$1 WHERE id=$2', [JSON.stringify(req.body), req.user.id]);
-    res.json(req.body);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
 
 // ════════════════════ START ════════════════════
 const PORT = process.env.PORT || 4000;
@@ -947,4 +933,29 @@ initDB()
   .catch(err => { console.error('❌ DB init failed:', err.message); process.exit(1); });
   app.get("/", (req, res) => {
   res.send("🚀 TalentAI Backend is running successfully!");
+});
+
+// ── Student Profile ──────────────────────────────────────────
+app.get('/add-profile-column', async (req, res) => {
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);
+    res.json({ success: true, message: 'profile column added' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/student/profile', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT profile FROM users WHERE id=$1', [req.user.id]);
+    res.json(r.rows[0]?.profile || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/student/profile', requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE users SET profile=$1 WHERE id=$2',
+      [JSON.stringify(req.body), req.user.id]
+    );
+    res.json(req.body);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
