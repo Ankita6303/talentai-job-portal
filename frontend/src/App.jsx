@@ -19,9 +19,10 @@ const sc  = s => s>=85?"#22c55e":s>=70?"#eab308":s>=55?"#f97316":"#ef4444";
 const slb = s => s>=85?"Strong Match":s>=70?"Good Match":s>=55?"Partial Match":"Low Match";
 const rc  = r => r==="Advance to Interview"?"#22c55e":r==="Hold"?"#eab308":"#ef4444";
 const inp = {
-  width:"100%", background:"#0f172a", border:"1px solid #1e293b",
-  borderRadius:8, color:"#f1f5f9", fontSize:14, padding:"10px 12px",
+  width:"100%", background:"#13161f", border:"1px solid rgba(255,255,255,0.08)",
+  borderRadius:10, color:"#f1f5f9", fontSize:14, padding:"11px 14px",
   outline:"none", boxSizing:"border-box", fontFamily:"inherit",
+  transition:"border-color 0.15s",
 };
 
 function Spinner() {
@@ -309,6 +310,11 @@ function VoiceInterviewModal({ job, onClose }) {
         </div>
       </div>
       <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  input:focus, textarea:focus, select:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important; }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  ...rest of your keyframes
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes pulse   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
         @keyframes ripple  { 0%{transform:scale(1);opacity:0.8} 100%{transform:scale(2.5);opacity:0} }
@@ -452,7 +458,7 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#070d1a" }}>
       <div style={{ width:380,background:"#0c1220",border:"1px solid #1e293b",borderRadius:16,padding:32 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:24 }}>
-          <div style={{ width:32,height:32,background:"#1d4ed8",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>⚡</div>
+          <div style={{ width:32,height:32,background:"#1d4ed8",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}></div>
           <span style={{ fontWeight:700,fontSize:18,color:"#f1f5f9" }}>TalentAI Admin</span>
         </div>
         <div style={{ display:"flex",gap:6,marginBottom:20,background:"#0f172a",borderRadius:8,padding:4 }}>
@@ -475,110 +481,600 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── CHANGE: JobsView now accepts onOpenTemplates prop ─────────
-function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillGap }) {    // ← CHANGE 4a
-  const [jobs,setJobs]=useState([]);const [selected,setSelected]=useState(null);
-  const [applying,setApplying]=useState(null);const [result,setResult]=useState(null);
-  const [voiceJob,setVoiceJob]=useState(null);const [search,setSearch]=useState("");
-  const [loading,setLoading]=useState(true);const [err,setErr]=useState("");
-  useEffect(()=>{api.getJobs().then(j=>{setJobs(j);setSelected(j[0]||null);}).catch(e=>setErr(e.message)).finally(()=>setLoading(false));},[]);
-  const filtered=jobs.filter(j=>j.title?.toLowerCase().includes(search.toLowerCase())||j.department?.toLowerCase().includes(search.toLowerCase())||(j.skills||[]).some(s=>s.toLowerCase().includes(search.toLowerCase())));
-  if(loading)return <div style={{ textAlign:"center",padding:60,color:"#475569" }}><Spinner/><p style={{ marginTop:12,fontSize:14 }}>Loading jobs…</p></div>;
-  if(err)return <div style={{ textAlign:"center",padding:60,color:"#f87171" }}><p>⚠️ {err}</p></div>;
+function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillGap }) {
+  const [jobs,setJobs]       = useState([]);
+  const [selected,setSelected] = useState(null);
+  const [applying,setApplying] = useState(null);
+  const [result,setResult]   = useState(null);
+  const [voiceJob,setVoiceJob] = useState(null);
+  const [filter, setFilter] = useState("All");
+  const [search,setSearch]   = useState("");
+  const [loading,setLoading] = useState(true);
+  const [err,setErr]         = useState("");
+
+  useEffect(()=>{
+    api.getJobs()
+      .then(j=>{ setJobs(j); setSelected(j[0]||null); })
+      .catch(e=>setErr(e.message))
+      .finally(()=>setLoading(false));
+  },[]);
+
+  const filtered = jobs.filter(j => {
+  const q = search.toLowerCase();
+  const matchSearch = !q ||
+    j.title?.toLowerCase().includes(q) ||
+    j.department?.toLowerCase().includes(q) ||
+    (j.skills||[]).some(s=>s.toLowerCase().includes(q));
+
+  const matchFilter =
+    filter==="All" ||
+    (filter==="Full-time"  && j.type?.includes("Full-time")) ||
+    (filter==="Internship" && j.type?.toLowerCase().includes("intern")) ||
+    (filter==="Remote"     && j.location?.toLowerCase().includes("remote")) ||
+    (filter==="Fresher"    && (
+      j.experience_required?.toLowerCase().includes("fresh") ||
+      j.experience_required?.toLowerCase().includes("0") ||
+      j.type?.toLowerCase().includes("intern")
+    ));
+
+  return matchSearch && matchFilter;
+});
+
+  if(loading) return (
+    <div style={{ textAlign:"center", padding:60, color:"#475569" }}>
+      <Spinner/><p style={{ marginTop:12, fontSize:14 }}>Loading jobs…</p>
+    </div>
+  );
+  if(err) return (
+    <div style={{ textAlign:"center", padding:60, color:"#f87171" }}>
+      <p>⚠️ {err}</p>
+    </div>
+  );
+
   return (
-    <div style={{ display:"grid",gridTemplateColumns:"360px 1fr",gap:22,alignItems:"start" }}>
+    <div style={{ display:"grid", gridTemplateColumns:"360px 1fr", gap:22, alignItems:"start" }}>
+
+      {/* ── LEFT COLUMN ── */}
       <div>
-        <input style={{ ...inp,marginBottom:12 }} placeholder="🔍  Search jobs, skills…" value={search} onChange={e=>setSearch(e.target.value)}/>
-        <p style={{ margin:"0 0 10px",fontSize:12,color:"#475569" }}>{filtered.length} open position{filtered.length!==1?"s":""}</p>
-        <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
-          {filtered.length===0&&<div style={{ textAlign:"center",padding:"40px 20px",color:"#475569" }}><p style={{ fontSize:36,margin:"0 0 10px" }}>💼</p><p style={{ fontSize:14 }}>No jobs posted yet.</p></div>}
+        {/* Search */}
+        <input
+          style={{
+            ...inp,
+            marginBottom:10,
+            background:"#13161f",
+            border:"1px solid rgba(255,255,255,0.08)",
+            borderRadius:12,
+            fontSize:14,
+            padding:"12px 16px",
+          }}
+          placeholder="🔍  Search jobs, skills…"
+          value={search}
+          onChange={e=>setSearch(e.target.value)}
+        />
+
+       {/* Filter chips */}
+<div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+  {["All","Full-time","Remote","Fresher","Internship"].map(chip=>(
+    <button key={chip}
+      onClick={()=>setFilter(chip)}
+      style={{
+        padding:"4px 12px",
+        borderRadius:999,
+        border:`1px solid ${filter===chip?"#6366f1":"#30363d"}`,
+        background: filter===chip?"#6366f1":"none",
+        color: filter===chip?"#fff":"#8b949e",
+        fontSize:11,
+        cursor:"pointer",
+        fontFamily:"inherit",
+        fontWeight: filter===chip?600:400,
+        transition:"all 0.15s",
+      }}>
+      {chip}
+    </button>
+  ))}
+</div>
+
+        <p style={{ margin:"0 0 10px", fontSize:11, color:"#484f58",
+          textTransform:"uppercase", letterSpacing:"0.06em" }}>
+          {filtered.length} open position{filtered.length!==1?"s":""}
+        </p>
+
+        {/* Job cards */}
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.length===0 && (
+            <div style={{ textAlign:"center", padding:"40px 20px", color:"#475569" }}>
+              <p style={{ fontSize:36, margin:"0 0 10px" }}>💼</p>
+              <p style={{ fontSize:14 }}>No jobs posted yet.</p>
+            </div>
+          )}
           {filtered.map(j=>{
-            const col=DEPT[j.department],isSel=selected?.id===j.id,skills=Array.isArray(j.skills)?j.skills:[];
+            const col=DEPT[j.department], isSel=selected?.id===j.id, skills=Array.isArray(j.skills)?j.skills:[];
             return (
-              <div key={j.id} onClick={()=>setSelected(j)} style={{ background:isSel?"#0f172a":"#0c1220",border:`1px solid ${isSel?"#2563eb":"#1e293b"}`,borderRadius:12,padding:"18px 20px",cursor:"pointer",position:"relative",transition:"border-color 0.15s" }}>
-                {isSel&&<div style={{ position:"absolute",left:0,top:0,bottom:0,width:3,borderRadius:"12px 0 0 12px",background:"#2563eb" }}/>}
-                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8 }}>
-                  <div><p style={{ margin:0,fontSize:15,fontWeight:600,color:"#f1f5f9" }}>{j.title}</p><p style={{ margin:"2px 0 0",fontSize:12,color:"#64748b" }}>{j.location} · {j.type}</p></div>
-                  {col&&<span style={{ fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:4,background:col.bg,color:col.text,border:`1px solid ${col.border}`,letterSpacing:"0.04em",textTransform:"uppercase" }}>{j.department}</span>}
+              <div key={j.id} onClick={()=>setSelected(j)} style={{
+                background: isSel?"#1a1f2e":"#13161f",
+                border:`1px solid ${isSel?"#388bfd":"rgba(255,255,255,0.06)"}`,
+                borderRadius:14,
+                padding:"16px 18px",
+                cursor:"pointer",
+                position:"relative",
+                transition:"all 0.18s",
+              }}>
+                {isSel && (
+                  <div style={{
+                    position:"absolute", left:0, top:10, bottom:10,
+                    width:2,
+                    borderRadius:"0 2px 2px 0",
+                    background:"linear-gradient(to bottom, #388bfd, #7c3aed)",
+                  }}/>
+                )}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                  <div>
+                    <p style={{ margin:0, fontSize:14, fontWeight:700, color:"#e6edf3", letterSpacing:"-0.01em" }}>{j.title}</p>
+                    <p style={{ margin:"2px 0 0", fontSize:11, color:"#484f58" }}>{j.location} · {j.type}</p>
+                  </div>
+                  {col && (
+                    <span style={{
+                      fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
+                      background:col.bg, color:col.text, border:`1px solid ${col.border}`,
+                      letterSpacing:"0.05em", textTransform:"uppercase", whiteSpace:"nowrap",
+                    }}>
+                      {j.department}
+                    </span>
+                  )}
                 </div>
-                <p style={{ margin:"0 0 10px",fontSize:12,color:"#94a3b8",lineHeight:1.5 }}>{j.description?.slice(0,90)}…</p>
-                <div style={{ display:"flex",flexWrap:"wrap",gap:5,marginBottom:12 }}>{skills.slice(0,4).map(s=><Pill key={s} label={s}/>)}</div>
-                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                  <span style={{ fontSize:13,color:"#22c55e",fontWeight:600 }}>{j.salary_min&&j.salary_max?`₹${(j.salary_min/100000).toFixed(1)}L – ₹${(j.salary_max/100000).toFixed(1)}L`:"Competitive"}</span>
-                  <button onClick={e=>{e.stopPropagation();setApplying(j);}} style={{ fontSize:12,fontWeight:600,padding:"5px 14px",borderRadius:6,background:"#1d4ed8",color:"#eff6ff",border:"none",cursor:"pointer" }}>Apply →</button>
+                <p style={{ margin:"0 0 10px", fontSize:12, color:"#8b949e", lineHeight:1.5 }}>
+                  {j.description?.slice(0,85)}…
+                </p>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:12 }}>
+                  {skills.slice(0,4).map(s=>(
+                    <span key={s} style={{
+                      fontSize:11, padding:"2px 8px", borderRadius:6,
+                      border:"1px solid #21262d", color:"#8b949e", background:"#0d1117",
+                    }}>{s}</span>
+                  ))}
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:"#3fb950", fontWeight:700 }}>
+                    {j.salary_min&&j.salary_max
+                      ? `₹${(j.salary_min/100000).toFixed(1)}L – ₹${(j.salary_max/100000).toFixed(1)}L`
+                      : "Competitive"}
+                  </span>
+                  <button
+                    onClick={e=>{ e.stopPropagation(); setApplying(j); }}
+                    style={{
+                      fontSize:11, fontWeight:700, padding:"5px 13px", borderRadius:7,
+                      background:"#1f6feb", color:"#fff", border:"none",
+                      cursor:"pointer", fontFamily:"inherit",
+                    }}
+                  >
+                    Apply →
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-      {selected&&(
-        <div style={{ background:"#0c1220",border:"1px solid #1e293b",borderRadius:14,padding:"24px 26px",position:"sticky",top:20 }}>
-          <p style={{ margin:"0 0 4px",fontSize:22,fontWeight:700,color:"#f1f5f9" }}>{selected.title}</p>
-          <p style={{ margin:"0 0 12px",fontSize:13,color:"#64748b" }}>{selected.location} · {selected.type}</p>
-          {selected.salary_min&&<p style={{ margin:"0 0 12px",fontSize:14,fontWeight:600,color:"#22c55e" }}>₹{(selected.salary_min/100000).toFixed(1)}L – ₹{(selected.salary_max/100000).toFixed(1)}L / yr</p>}
-          <p style={{ margin:"0 0 18px",fontSize:14,color:"#94a3b8",lineHeight:1.65 }}>{selected.description}</p>
-          {(Array.isArray(selected.skills)?selected.skills:[]).length>0&&<><p style={{ margin:"0 0 8px",fontSize:11,color:"#475569",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Core Skills</p><div style={{ display:"flex",flexWrap:"wrap",gap:6,marginBottom:18 }}>{(Array.isArray(selected.skills)?selected.skills:[]).map(s=><Pill key={s} label={s}/>)}</div></>}
-          {(Array.isArray(selected.requirements)?selected.requirements:[]).length>0&&<><p style={{ margin:"0 0 8px",fontSize:11,color:"#475569",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Requirements</p><ul style={{ margin:"0 0 22px",paddingLeft:18 }}>{(Array.isArray(selected.requirements)?selected.requirements:[]).map((r,i)=><li key={i} style={{ fontSize:13,color:"#94a3b8",marginBottom:5 }}>{r}</li>)}</ul></>}
 
-          {/* 2x2 button grid */}
-<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
-  <button onClick={() => { setResult(null); setApplying(selected); }} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
-    📄 Upload PDF<br/>
-     <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Get ATS Score →</span>
-</button>
-  <button onClick={() => setVoiceJob(selected)} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
-    🎤 AI Voice<br/>
-    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Interview</span>
-  </button>
-  <button onClick={onOpenResume} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
-    🤖 Build Resume<br/>
-    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>AI-Powered</span>
-  </button>
-  <button onClick={onOpenTemplates} style={{ padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44" }}>
-    📋 Templates<br/>
-    <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Browse Styles</span>
-  </button>
-</div>
+      {/* ── RIGHT COLUMN — detail panel ── */}
+      {selected && (
+        <div style={{
+          background:"#161b22",
+          border:"1px solid #21262d",
+          borderRadius:16,
+          padding:"24px 26px",
+          position:"sticky",
+          top:72,
+        }}>
 
-{/* Convert Resume - full width */}
-<button onClick={onOpenConverter} style={{ width: "100%", marginTop: 10, padding: "12px 8px", borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", lineHeight: 1.3, boxShadow: "0 4px 16px #7c3aed44", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-  🔄 Convert Resume
-  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>— Old Resume → ATS Optimized</span>
-</button>
+          {/* Title + Actively Hiring badge */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+            <p style={{ margin:0, fontSize:24, fontWeight:800, color:"#e6edf3", letterSpacing:"-0.03em" }}>
+              {selected.title}
+            </p>
+            <span style={{
+              background:"#0a3622", border:"1px solid #238636", color:"#3fb950",
+              fontSize:10, fontWeight:700, padding:"3px 10px", borderRadius:999,
+              letterSpacing:"0.06em", textTransform:"uppercase",
+              whiteSpace:"nowrap", marginLeft:12, marginTop:4, flexShrink:0,
+            }}>
+              Actively Hiring
+            </span>
+          </div>
 
-{/* Skill Gap - full width */}
-<button onClick={onOpenSkillGap} style={{ width: "100%", padding: "12px", borderRadius: 8, marginTop: 10, background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", border: "1px solid #2563eb55", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 4px 16px #7c3aed44" }}>
-  🗺️ AI Skill Gap Mapper
-  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>— Free Course Roadmap</span>
-</button>
+          <p style={{ margin:"0 0 16px", fontSize:12, color:"#484f58" }}>
+            {selected.location} · {selected.type}
+          </p>
 
-<p style={{ margin: "10px 0 0", fontSize: 11, color: "#334155", textAlign: "center" }}>
-  🎤 Powered by Groq AI · Chrome only for mic
-</p>
+          {/* 3 stat boxes */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:20 }}>
+            {[
+              {
+                val: selected.salary_min
+                  ? `₹${(selected.salary_min/100000).toFixed(0)}–${(selected.salary_max/100000).toFixed(0)}L`
+                  : "—",
+                lbl:"per year",
+                color:"#3fb950",
+              },
+              { val:"0–2 yrs", lbl:"experience", color:"#e6edf3" },
+              { val: selected.applicant_count != null ? selected.applicant_count : "—", lbl:"applicants", color:"#d2a8ff" },
+            ].map(s=>(
+              <div key={s.lbl} style={{
+                background:"#0d1117", border:"1px solid #21262d",
+                borderRadius:10, padding:"10px 14px", textAlign:"center",
+              }}>
+                <div style={{ fontSize:18, fontWeight:800, color:s.color, letterSpacing:"-0.02em" }}>{s.val}</div>
+                <div style={{ fontSize:10, color:"#484f58", marginTop:2 }}>{s.lbl}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Description */}
+          <p style={{ margin:"0 0 18px", fontSize:13, color:"#8b949e", lineHeight:1.7 }}>
+            {selected.description}
+          </p>
+
+          {/* Core Skills — first 3 highlighted */}
+          {(Array.isArray(selected.skills)?selected.skills:[]).length > 0 && (
+            <>
+              <p style={{ margin:"0 0 8px", fontSize:10, color:"#484f58",
+                fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                Core Skills
+              </p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:18 }}>
+                {(Array.isArray(selected.skills)?selected.skills:[]).map((s,i)=>(
+                  <span key={s} style={{
+                    fontSize:12, padding:"4px 12px", borderRadius:8,
+                    border: i<3 ? "1px solid rgba(31,111,235,0.4)" : "1px solid #21262d",
+                    color:  i<3 ? "#79c0ff" : "#8b949e",
+                    background: i<3 ? "rgba(31,111,235,0.08)" : "#0d1117",
+                  }}>{s}</span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Requirements */}
+          {(Array.isArray(selected.requirements)?selected.requirements:[]).length > 0 && (
+            <>
+              <p style={{ margin:"0 0 8px", fontSize:10, color:"#484f58",
+                fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                Requirements
+              </p>
+              <ul style={{ margin:"0 0 20px", paddingLeft:18 }}>
+                {(Array.isArray(selected.requirements)?selected.requirements:[]).map((r,i)=>(
+                  <li key={i} style={{ fontSize:13, color:"#8b949e", marginBottom:5 }}>{r}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {/* ── Action buttons ── */}
+          <div style={{ marginTop:4 }}>
+
+            {/* Upload Resume — primary full width */}
+            <button
+              onClick={()=>{ setResult(null); setApplying(selected); }}
+              style={{
+                width:"100%", padding:"13px 18px", borderRadius:11,
+                border:"1px solid rgba(99,102,241,0.35)",
+                background:"linear-gradient(135deg,rgba(31,111,235,0.1),rgba(124,58,237,0.1))",
+                color:"#e6edf3", cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                fontFamily:"inherit", marginBottom:8,
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{
+                  width:30, height:30, borderRadius:8,
+                  background:"rgba(99,102,241,0.15)",
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
+                }}>📄</div>
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#e6edf3" }}>Upload Resume</div>
+                  <div style={{ fontSize:10, color:"#8b949e", marginTop:1 }}>Get instant ATS score</div>
+                </div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* 2x2 grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+              {[
+                { icon:"🎤", label:"AI Voice",    sub:"Interview prep",  border:"rgba(16,185,129,0.25)",  bg:"rgba(16,185,129,0.06)",  action:()=>setVoiceJob(selected) },
+                { icon:"🤖", label:"Build Resume", sub:"AI-powered",      border:"rgba(139,92,246,0.25)", bg:"rgba(139,92,246,0.06)",  action:onOpenResume },
+                { icon:"📋", label:"Templates",   sub:"Browse styles",   border:"rgba(6,182,212,0.25)",  bg:"rgba(6,182,212,0.06)",   action:onOpenTemplates },
+                { icon:"🔄", label:"Convert",     sub:"ATS optimize",    border:"rgba(245,158,11,0.25)", bg:"rgba(245,158,11,0.06)",  action:onOpenConverter },
+              ].map(btn=>(
+                <button key={btn.label} onClick={btn.action} style={{
+                  padding:"12px 14px", borderRadius:11,
+                  border:`1px solid ${btn.border}`,
+                  background:btn.bg,
+                  cursor:"pointer",
+                  display:"flex", flexDirection:"column", alignItems:"flex-start", gap:5,
+                  fontFamily:"inherit",
+                }}>
+                  <div style={{
+                    width:26, height:26, borderRadius:7,
+                    background:btn.bg.replace("0.06","0.15"),
+                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:13,
+                  }}>{btn.icon}</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#e6edf3", letterSpacing:"-0.01em" }}>{btn.label}</div>
+                  <div style={{ fontSize:10, color:"#484f58" }}>{btn.sub}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Skill Gap — full width */}
+            <button onClick={onOpenSkillGap} style={{
+              width:"100%", padding:"11px 16px", borderRadius:11,
+              border:"1px solid rgba(56,189,248,0.2)",
+              background:"rgba(56,189,248,0.05)",
+              cursor:"pointer",
+              display:"flex", alignItems:"center", gap:10,
+              fontFamily:"inherit", marginBottom:8,
+            }}>
+              <div style={{
+                width:26, height:26, borderRadius:7,
+                background:"rgba(56,189,248,0.1)",
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:13,
+              }}>🗺️</div>
+              <div style={{ textAlign:"left", flex:1 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:"#e6edf3" }}>AI Skill Gap Mapper</div>
+                <div style={{ fontSize:10, color:"#484f58", marginTop:1 }}>Free course roadmap</div>
+              </div>
+              <span style={{
+                fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:4,
+                background:"rgba(56,189,248,0.1)", color:"#38bdf8",
+                letterSpacing:"0.08em", textTransform:"uppercase",
+                border:"1px solid rgba(56,189,248,0.2)",
+              }}>Free</span>
+            </button>
+
+            {/* Powered by */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, marginTop:10 }}>
+              <div style={{ width:3, height:3, borderRadius:"50%", background:"#30363d" }}/>
+              <span style={{ fontSize:10, color:"#30363d", letterSpacing:"0.04em" }}>
+                Powered by Groq AI · Chrome required for mic
+              </span>
+              <div style={{ width:3, height:3, borderRadius:"50%", background:"#30363d" }}/>
+            </div>
+
+          </div>
         </div>
       )}
-      {applying && <ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res => {
+
+      {/* Modals */}
+     {applying&&<ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{
   setApplying(null);
-  // Handle different response shapes from backend
-  const aiResult = res.ai_result || res.result || res.data || res;
-  const appName  = res.application?.name || res.name || "Applicant";
-  setResult({
-    data: aiResult,
-    name: appName,
-    jobTitle: applying.title,
-  });
+  const aiResult = res?.ai_result || res?.result || res?.data || res || {};
+  const appName  = res?.application?.name || res?.name || "Applicant";
+  setResult({ data:aiResult, name:appName, jobTitle:applying.title });
+  api.getJobs().then(j=>{ setJobs(j); setSelected(prev => j.find(x=>x.id===prev?.id) || prev); }).catch(()=>{});
 }}/>}
-      {result && <ATSModal result={result.data} name={result.name} jobTitle={result.jobTitle} onClose={()=>setResult(null)}/>}
+      {result   && <ATSModal result={result.data} name={result.name} jobTitle={result.jobTitle} onClose={()=>setResult(null)}/>}
       {voiceJob && <VoiceInterviewModal job={voiceJob} onClose={()=>setVoiceJob(null)}/>}
+
     </div>
   );
 }
 
 // ── ROOT APP ──────────────────────────────────────────────────
+function WelcomeScreen({ onContinue }) {
+  useEffect(() => {
+    const timer = setTimeout(onContinue, 3000);
+    return () => clearTimeout(timer);
+  }, [onContinue]);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "radial-gradient(circle at top, #16213e 0%, #070d1a 55%, #040814 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 960,
+          display: "grid",
+          gridTemplateColumns: "1.1fr 0.9fr",
+          gap: 30,
+          alignItems: "center",
+          background: "rgba(12,18,32,0.88)",
+          border: "1px solid #1e293b",
+          borderRadius: 24,
+          padding: "42px 38px",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {/* LEFT SIDE */}
+        <div>
+          <p style={{
+            margin: "0 0 10px",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "#60a5fa",
+          }}>
+            Welcome to
+          </p>
+
+          <h1 style={{
+            margin: "0 0 14px",
+            fontSize: 42,
+            lineHeight: 1.1,
+            color: "#f8fafc",
+            fontWeight: 800,
+          }}>
+            TalentAI
+          </h1>
+
+          <p style={{
+            margin: "0 0 28px",
+            fontSize: 16,
+            lineHeight: 1.7,
+            color: "#94a3b8",
+            maxWidth: 420,
+          }}>
+            Your AI-powered student career platform for job discovery, ATS resume analysis,
+            voice interviews, resume building, and skill-gap mapping.
+          </p>
+
+          {/* PROGRESS BAR — replaces button and checklist */}
+          <div style={{ marginTop: 8 }}>
+            <div style={{
+              fontSize: 12,
+              color: "#64748b",
+              marginBottom: 10,
+              letterSpacing: "0.06em",
+            }}>
+              Launching in 3 seconds…
+            </div>
+            <div style={{
+              width: 220,
+              height: 3,
+              background: "rgba(255,255,255,0.08)",
+              borderRadius: 999,
+              overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%",
+                background: "linear-gradient(90deg, #7c3aed, #06b6d4)",
+                borderRadius: 999,
+                animation: "fillBar 3s linear forwards",
+              }}/>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT SIDE — Professional Robot */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <svg width="260" height="280" viewBox="0 0 260 280" fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{
+              animation: "floatBot 3s ease-in-out infinite",
+              filter: "drop-shadow(0 24px 48px rgba(124,58,237,0.35))"
+            }}>
+
+            {/* Ground glow */}
+            <ellipse cx="130" cy="268" rx="72" ry="10" fill="#7c3aed" opacity="0.15"/>
+
+            {/* Antenna */}
+            <rect x="124" y="10" width="12" height="28" rx="6" fill="#4f46e5"/>
+            <circle cx="130" cy="8" r="10" fill="#7c3aed"/>
+            <circle cx="130" cy="8" r="5" fill="#a78bfa"/>
+
+            {/* Head */}
+            <rect x="58" y="36" width="144" height="96" rx="28" fill="url(#hg)"/>
+            <rect x="58" y="36" width="144" height="96" rx="28" fill="none" stroke="#4f46e5" strokeWidth="1.5"/>
+            {/* Head shine */}
+            <rect x="70" y="44" width="50" height="10" rx="5" fill="white" opacity="0.05"/>
+
+            {/* Left eye */}
+            <rect x="78" y="62" width="36" height="28" rx="14" fill="#0d1117"/>
+            <circle cx="96" cy="76" r="10" fill="#06b6d4"/>
+            <circle cx="96" cy="76" r="5" fill="#0e7490"/>
+            <circle cx="99" cy="73" r="3" fill="white" opacity="0.9"/>
+
+            {/* Right eye */}
+            <rect x="146" y="62" width="36" height="28" rx="14" fill="#0d1117"/>
+            <circle cx="164" cy="76" r="10" fill="#06b6d4"/>
+            <circle cx="164" cy="76" r="5" fill="#0e7490"/>
+            <circle cx="167" cy="73" r="3" fill="white" opacity="0.9"/>
+
+            {/* Smile */}
+            <path d="M 94 106 Q 130 128 166 106" stroke="#10b981" strokeWidth="4" strokeLinecap="round" fill="none"/>
+
+            {/* Cheek blush */}
+            <circle cx="72" cy="106" r="10" fill="#f472b6" opacity="0.15"/>
+            <circle cx="188" cy="106" r="10" fill="#f472b6" opacity="0.15"/>
+
+            {/* Neck */}
+            <rect x="116" y="132" width="28" height="14" rx="6" fill="#1e293b"/>
+
+            {/* Body */}
+            <rect x="46" y="146" width="168" height="96" rx="24" fill="url(#bg2)"/>
+            <rect x="46" y="146" width="168" height="96" rx="24" fill="none" stroke="#334155" strokeWidth="1"/>
+
+            {/* Chest screen */}
+            <rect x="72" y="162" width="116" height="62" rx="14" fill="#0d1117" stroke="#1e293b" strokeWidth="1"/>
+            <rect x="80" y="170" width="100" height="2" rx="1" fill="#7c3aed" opacity="0.5"/>
+
+            {/* AI badge */}
+            <rect x="96" y="178" width="68" height="30" rx="8" fill="#4f46e5"/>
+            <text x="130" y="198" textAnchor="middle" fill="white" fontSize="14"
+              fontWeight="800" fontFamily="system-ui,sans-serif">AI</text>
+
+            {/* Screen dots */}
+            <circle cx="90" cy="213" r="3" fill="#7c3aed" opacity="0.6"/>
+            <circle cx="102" cy="213" r="3" fill="#06b6d4" opacity="0.6"/>
+            <circle cx="114" cy="213" r="3" fill="#10b981" opacity="0.6"/>
+
+            {/* Left arm */}
+            <rect x="10" y="150" width="32" height="72" rx="16" fill="url(#ag)"/>
+            <rect x="10" y="150" width="32" height="72" rx="16" fill="none" stroke="#334155" strokeWidth="1"/>
+            <circle cx="26" cy="228" r="13" fill="#1e293b" stroke="#334155" strokeWidth="1"/>
+
+            {/* Right arm */}
+            <rect x="218" y="150" width="32" height="72" rx="16" fill="url(#ag)"/>
+            <rect x="218" y="150" width="32" height="72" rx="16" fill="none" stroke="#334155" strokeWidth="1"/>
+            <circle cx="234" cy="228" r="13" fill="#1e293b" stroke="#334155" strokeWidth="1"/>
+
+            {/* Left leg */}
+            <rect x="82" y="238" width="36" height="24" rx="10" fill="#1e293b" stroke="#334155" strokeWidth="1"/>
+            <rect x="82" y="254" width="36" height="10" rx="5" fill="#0d1117"/>
+
+            {/* Right leg */}
+            <rect x="142" y="238" width="36" height="24" rx="10" fill="#1e293b" stroke="#334155" strokeWidth="1"/>
+            <rect x="142" y="254" width="36" height="10" rx="5" fill="#0d1117"/>
+
+            <defs>
+              <linearGradient id="hg" x1="58" y1="36" x2="202" y2="132" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#1e1b4b"/>
+                <stop offset="1" stopColor="#111827"/>
+              </linearGradient>
+              <linearGradient id="bg2" x1="46" y1="146" x2="214" y2="242" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#1e1b4b"/>
+                <stop offset="1" stopColor="#0f172a"/>
+              </linearGradient>
+              <linearGradient id="ag" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+                <stop stopColor="#1e293b"/>
+                <stop offset="1" stopColor="#0f172a"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes floatBot {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-12px); }
+        }
+        @keyframes fillBar {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
+  
   const [user,setUser]             = useState(null);
   const [view,setView]             = useState("jobs");
   const [checking,setCheck]        = useState(true);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showTemplates,setShowTemplates] = useState(false);
   const [showResume, setShowResume] = useState(false);
 const [showConverter, setShowConverter] = useState(false);
@@ -600,9 +1096,12 @@ useEffect(()=>{
 
   if(checking)return <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#070d1a" }}><Spinner/></div>;
   if(view==="login")return <AdminPanel onLogin={u=>{setUser(u);setView("admin");}}/>;
+if (showWelcome) {
+  return <WelcomeScreen onContinue={() => setShowWelcome(false)} />;
+}
 
   return (
-    <div style={{ minHeight:"100vh",background:"#070d1a",color:"#f1f5f9",fontFamily:"'IBM Plex Sans',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh",background:"#0f1117",color:"#f1f5f9",fontFamily:"'Plus Jakarta Sans','IBM Plex Sans',system-ui,sans-serif" }}>
       <style>{`
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes fadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
@@ -614,35 +1113,148 @@ useEffect(()=>{
         @keyframes bar2    { from{height:12px} to{height:24px} }
         @keyframes bar3    { from{height:6px} to{height:18px} }
       `}</style>
+      
 
       {/* Navbar */}
-      <div style={{ background:"#0c1220",borderBottom:"1px solid #1e293b",padding:"0 28px" }}>
-        <div style={{ maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",height:56,gap:20 }}>
-          <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-            <div style={{ width:28,height:28,background:"#1d4ed8",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14 }}>⚡</div>
-            <span style={{ fontWeight:700,fontSize:16,color:"#f1f5f9" }}>TalentAI</span>
-            <span style={{ fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:4,background:"#1e3a5f",color:"#60a5fa" }}>AI-POWERED</span>
-          </div>
-          <div style={{ display:"flex",gap:2,marginLeft:8 }}>
-            {[{id:"jobs",icon:"💼",label:"Browse Jobs"},{id:"student",icon:"🎓",label:"My Profile"},...(user?[{id:"admin",icon:"📊",label:"Admin Dashboard"}]:[])].map(t=>(
-              <button key={t.id} onClick={()=>setView(t.id)} style={{ background:view===t.id?"#1e293b":"none",border:"none",color:view===t.id?"#f1f5f9":"#64748b",padding:"6px 14px",borderRadius:6,fontSize:13,fontWeight:view===t.id?600:400,cursor:"pointer" }}>
-                {t.icon} {t.label}
-              </button>
-            ))}
+    {/* Navbar */}
+<div style={{
+  background: "rgba(15,17,23,0.97)",
+  borderBottom: "1px solid rgba(255,255,255,0.06)",
+  padding: "0 32px",
+  backdropFilter: "blur(12px)",
+  position: "sticky",
+  top: 0,
+  zIndex: 50,
+}}>
+  <div style={{
+    maxWidth: 1100,
+    margin: "0 auto",
+    display: "flex",
+    alignItems: "center",
+    height: 58,
+    gap: 4,
+  }}>
 
-           
-           
-          </div>
-          <div style={{ marginLeft:"auto" }}>
-  {user && (
-    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-      <span style={{ fontSize:13,color:"#64748b" }}>{user.name}</span>
-      <button onClick={()=>{api.clearToken();setUser(null);setView("jobs");}} style={{ fontSize:12,padding:"5px 12px",borderRadius:6,background:"none",border:"1px solid #1e293b",color:"#94a3b8",cursor:"pointer" }}>Sign out</button>
-    </div>
-  )}
+    {/* Logo */}
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: 24 }}>
+     <div style={{ width:32, height:32, background:"linear-gradient(135deg,#2563eb,#7c3aed)",
+  borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <polyline points="4,16 7,9 11,12 15,4"
+      stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="15" cy="4" r="2" fill="white"/>
+  </svg>
 </div>
-        </div>
-      </div>
+<span style={{ fontWeight:700, fontSize:16, letterSpacing:"-0.02em" }}>
+  <span style={{ color:"#f1f5f9" }}>Talent</span><span style={{ color:"#79c0ff" }}>AI</span>
+</span>
+      <span style={{
+        fontSize: 9,
+        fontWeight: 700,
+        padding: "2px 7px",
+        borderRadius: 4,
+        background: "rgba(99,102,241,0.18)",
+        color: "#818cf8",
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        border: "1px solid rgba(99,102,241,0.25)",
+      }}>
+        Beta
+      </span>
+    </div>
+
+    {/* Nav tabs */}
+    <div style={{ display: "flex", gap: 2 }}>
+      {[
+        { id: "jobs",    label: "Browse Jobs" },
+        { id: "student", label: "My Profile"  },
+        ...(user ? [{ id: "admin", label: "Admin" }] : []),
+      ].map(t => (
+        <button
+          key={t.id}
+          onClick={() => setView(t.id)}
+          style={{
+            padding: "6px 16px",
+            borderRadius: 7,
+            border: "none",
+            background: view === t.id
+              ? "rgba(255,255,255,0.07)"
+              : "transparent",
+            color: view === t.id ? "#f1f5f9" : "#64748b",
+            fontSize: 13,
+            fontWeight: view === t.id ? 600 : 400,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            letterSpacing: "-0.01em",
+            transition: "all 0.15s",
+          }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+
+    {/* Right side */}
+    <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+      {user ? (
+        <>
+          {/* Avatar */}
+          <div style={{
+            width: 30,
+            height: 30,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #6d28d9, #06b6d4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#fff",
+            flexShrink: 0,
+          }}>
+            {user.name?.[0]?.toUpperCase() || "U"}
+          </div>
+          <span style={{ fontSize: 13, color: "#64748b" }}>{user.name}</span>
+          <button
+            onClick={() => { api.clearToken(); setUser(null); setView("jobs"); }}
+            style={{
+              fontSize: 12,
+              padding: "5px 14px",
+              borderRadius: 7,
+              background: "none",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "#64748b",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+            }}
+          >
+            Sign out
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={() => setView("login")}
+          style={{
+            fontSize: 13,
+            padding: "7px 18px",
+            borderRadius: 8,
+            background: "linear-gradient(135deg, #6d28d9, #4f46e5)",
+            border: "none",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 600,
+            fontFamily: "inherit",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Sign in
+        </button>
+      )}
+    </div>
+
+  </div>
+</div>
 
       {/* Body */}
       <div style={{ maxWidth:1100,margin:"0 auto",padding:"26px 28px" }}>

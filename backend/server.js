@@ -42,7 +42,7 @@ const pool = new Pool({
 // ── DB Init ────────────────────────────────────────────────────
 async function initDB() {
   await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
-  await pool.query(`
+ await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       email         TEXT UNIQUE NOT NULL,
@@ -52,8 +52,13 @@ async function initDB() {
       plan          TEXT DEFAULT 'free',
       phone         TEXT,
       whatsapp      TEXT,
+      profile       JSONB DEFAULT '{}',
+      updated_at    TIMESTAMPTZ DEFAULT NOW(),
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS jobs (
       id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -286,7 +291,7 @@ async function extractText(file) {
 // ══════════════════════════════════════════════════════════════
 const emailBase = (body) => `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:20px;">
   <div style="background:#0c1220;border-radius:12px;padding:24px;text-align:center;margin-bottom:16px;">
-    <h1 style="color:#f1f5f9;margin:0;font-size:22px;">⚡ TalentAI</h1>
+    <h1 style="color:#f1f5f9;margin:0;font-size:22px;"> TalentAI</h1>
     <p style="color:#60a5fa;margin:4px 0 0;font-size:12px;">AI-Powered Job Portal</p>
   </div>
   <div style="background:white;border-radius:12px;padding:28px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">${body}</div>
@@ -339,7 +344,7 @@ app.get('/test-email', async (req, res) => {
     to:      testEmail,
     subject: '✅ TalentAI Email Test',
     html:    `<div style="font-family:Arial;padding:20px;background:#f8fafc;">
-                <h2 style="color:#4f46e5;">⚡ TalentAI Email Works!</h2>
+                <h2 style="color:#4f46e5;"> TalentAI Email Works!</h2>
                 <p>If you see this, your Resend integration is working perfectly.</p>
                 <p style="color:#64748b;font-size:12px;">Sent at: ${new Date().toLocaleString()}</p>
               </div>`,
@@ -438,14 +443,27 @@ app.get('/auth/me', requireAuth, async (req, res) => {
 
 app.get('/jobs', async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM jobs WHERE is_active=true ORDER BY created_at DESC');
+    const r = await pool.query(`
+      SELECT j.*, COUNT(a.id)::int AS applicant_count
+      FROM jobs j
+      LEFT JOIN applications a ON a.job_id = j.id
+      WHERE j.is_active = true
+      GROUP BY j.id
+      ORDER BY j.created_at DESC
+    `);
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error:e.message }); }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/jobs/:id', async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM jobs WHERE id=$1 AND is_active=true', [req.params.id]);
+    const r = await pool.query(`
+      SELECT j.*, COUNT(a.id)::int AS applicant_count
+      FROM jobs j
+      LEFT JOIN applications a ON a.job_id = j.id
+      WHERE j.id = $1
+      GROUP BY j.id
+    `, [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error:'Job not found' });
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error:e.message }); }
@@ -952,9 +970,15 @@ app.get('/student/profile', requireAuth, async (req, res) => {
 
 app.put('/student/profile', requireAuth, async (req, res) => {
   try {
+    // Remove photo from DB if too large, store separately
+    const profileData = { ...req.body };
+    if (profileData.photo && profileData.photo.length > 50000) {
+      // Store photo separately, keep small version in profile
+      profileData.photo = profileData.photo.substring(0, 50000);
+    }
     await pool.query(
       'UPDATE users SET profile=$1 WHERE id=$2',
-      [JSON.stringify(req.body), req.user.id]
+      [JSON.stringify(profileData), req.user.id]
     );
     res.json(req.body);
   } catch (e) { res.status(500).json({ error: e.message }); }

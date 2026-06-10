@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-
+import PhotoPicker from "./PhotoPicker.jsx";
+import SmartSkillsInput from "./SmartSkillsInput";
 const API = import.meta.env.VITE_API_URL || "https://talentai-job-portal.onrender.com";
 
 // ── helpers ───────────────────────────────────────────────────
-const token = () => localStorage.getItem("student_token");
+const token = () => localStorage.getItem("student_token") || localStorage.getItem("talentai_token");
 const authH = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token()}` });
 const inp = {
   width: "100%", background: "#0f172a", border: "1px solid #1e293b",
@@ -11,7 +12,7 @@ const inp = {
   outline: "none", boxSizing: "border-box", fontFamily: "inherit",
 };
 const lbl = { fontSize: 12, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 5 };
-const card = { background: "#0c1220", border: "1px solid #1e293b", borderRadius: 14, padding: "22px 24px", marginBottom: 18 };
+const card = { background: "#0f1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "22px 24px", marginBottom: 18 };
 
 function Avatar({ name, photo, size = 72 }) {
   if (photo) return <img src={photo} alt={name} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "3px solid #4f46e5" }} />;
@@ -29,7 +30,7 @@ function Spinner() {
 
 function SkillTag({ skill, onRemove }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e3a5f", color: "#60a5fa", border: "1px solid #2563eb44", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(79,70,229,0.1)", color: "#818cf8", border: "1px solid rgba(79,70,229,0.2)", padding: "4px 12px", borderRadius: 6, letterSpacing: "0.02em", fontSize: 12, fontWeight: 600 }}>
       {skill}
       {onRemove && <button onClick={onRemove} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>×</button>}
     </span>
@@ -140,16 +141,20 @@ function ProfileForm({ profile, onSave, onCancel }) {
   });
   const [skillInput, setSkillInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef();
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const addSkill = () => {
-    const s = skillInput.trim();
-    if (s && !form.skills.includes(s)) { set("skills", [...form.skills, s]); setSkillInput(""); }
-  };
-
+  const s = skillInput.trim();
+  const currentSkills = form.skills || [];
+  if (s && !currentSkills.includes(s)) {
+    set("skills", [...currentSkills, s]);
+    setSkillInput("");
+  }
+};
   const removeSkill = (s) => set("skills", form.skills.filter(x => x !== s));
 
   const addExp = () => set("experience", [...(form.experience || []), { company: "", role: "", duration: "", description: "" }]);
@@ -161,13 +166,25 @@ function ProfileForm({ profile, onSave, onCancel }) {
   const removeProj = (i) => set("projects", form.projects.filter((_, idx) => idx !== i));
 
   const handlePhoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => set("photo", ev.target.result);
-    reader.readAsDataURL(file);
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    // Compress image to max 200x200
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const MAX = 200;
+      const ratio = Math.min(MAX / img.width, MAX / img.height);
+      canvas.width  = img.width  * ratio;
+      canvas.height = img.height * ratio;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      set("photo", canvas.toDataURL("image/jpeg", 0.7)); // compress to 70% quality
+    };
+    img.src = ev.target.result;
   };
-
+  reader.readAsDataURL(file);
+};
   const save = async () => {
     setSaving(true); setError("");
     try {
@@ -193,19 +210,31 @@ function ProfileForm({ profile, onSave, onCancel }) {
       <div style={card}>
         {sectionTitle("👤", "Basic Information", "#a78bfa")}
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 16 }}>
-          <div style={{ textAlign: "center" }}>
-            <Avatar name={profile?.name || "?"} photo={form.photo} size={80} />
-            <input type="file" ref={fileRef} accept="image/*" style={{ display: "none" }} onChange={handlePhoto} />
-            <button onClick={() => fileRef.current.click()} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 6, background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", fontSize: 11, cursor: "pointer", display: "block", width: "100%" }}>📷 Change</button>
-          </div>
+         <div style={{ textAlign: "center" }}>
+  <div onClick={() => setShowPicker(true)} style={{ cursor: "pointer", position: "relative", display: "inline-block" }}>
+    <Avatar name={profile?.name || "?"} photo={form.photo} size={80} />
+    <div style={{ position: "absolute", bottom: 0, right: 0, background: "#4f46e5", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: "2px solid #0c1220" }}>📷</div>
+  </div>
+  <div style={{ fontSize: 11, color: "#475569", marginTop: 6 }}>Click to change</div>
+  {showPicker && (
+    <PhotoPicker
+      currentPhoto={form.photo}
+      name={profile?.name || ""}
+      onSave={(photo) => { set("photo", photo); setShowPicker(false); }}
+      onCancel={() => setShowPicker(false)}
+    />
+  )}
+</div>
           <div style={{ flex: 1 }}>
             <label style={lbl}>Bio / Headline</label>
             <textarea style={{ ...inp, height: 72, resize: "none" }} placeholder="Full-stack developer passionate about AI and open source…" value={form.bio} onChange={e => set("bio", e.target.value)} />
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div><label style={lbl}>College / University</label><input style={inp} placeholder="SVPM College of Engineering" value={form.college} onChange={e => set("college", e.target.value)} /></div>
-          <div><label style={lbl}>Degree</label><input style={inp} placeholder="B.E. Computer Engineering" value={form.degree} onChange={e => set("degree", e.target.value)} /></div>
+  <div><label style={lbl}>Full Name *</label><input style={inp} placeholder="Ankita Bansod" value={form.display_name || profile?.name || ""} onChange={e => set("display_name", e.target.value)} /></div>
+  <div><label style={lbl}>Mobile Number</label><input style={inp} type="tel" placeholder="+91 83083 92372" value={form.mobile || ""} onChange={e => set("mobile", e.target.value)} /></div>
+  <div><label style={lbl}>College / University</label><input style={inp} placeholder="SVPM College of Engineering" value={form.college} onChange={e => set("college", e.target.value)} /></div>
+  <div><label style={lbl}>Degree</label><input style={inp} placeholder="B.E. Computer Engineering" value={form.degree} onChange={e => set("degree", e.target.value)} /></div>
           <div><label style={lbl}>Graduation Year</label>
             <select style={{ ...inp }} value={form.graduation_year} onChange={e => set("graduation_year", e.target.value)}>
               <option value="">Select year</option>
@@ -220,7 +249,7 @@ function ProfileForm({ profile, onSave, onCancel }) {
 
       {/* Skills */}
       <div style={card}>
-        {sectionTitle("🛠️", "Skills", "#34d399")}
+        {sectionTitle("Skills")}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <input style={{ ...inp, flex: 1 }} placeholder="Type a skill and press Enter…" value={skillInput}
             onChange={e => setSkillInput(e.target.value)}
@@ -229,18 +258,18 @@ function ProfileForm({ profile, onSave, onCancel }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
           {form.skills.map((s, i) => <SkillTag key={i} skill={s} onRemove={() => removeSkill(s)} />)}
-          {form.skills.length === 0 && <span style={{ fontSize: 13, color: "#334155" }}>No skills added yet</span>}
+          {(form.skills || []).length === 0 && <span style={{ fontSize:13, color:"#334155" }}>No skills added yet</span>}
         </div>
       </div>
 
       {/* Experience */}
       <div style={card}>
-        {sectionTitle("💼", "Work Experience", "#f59e0b")}
+        {sectionTitle("Work Experience")}
         {(form.experience || []).map((exp, i) => (
           <div key={i} style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Experience #{i + 1}</span>
-              <button onClick={() => removeExp(i)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18, padding: 0 }}>×</button>
+              <button onClick={() => removeExp(i)} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18, padding: 0 }}>×</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div><label style={lbl}>Company</label><input style={inp} placeholder="TechCorp Pvt. Ltd." value={exp.company} onChange={e => setExp(i, "company", e.target.value)} /></div>
@@ -257,7 +286,7 @@ function ProfileForm({ profile, onSave, onCancel }) {
 
       {/* Projects */}
       <div style={card}>
-        {sectionTitle("🚀", "Projects", "#a78bfa")}
+        {sectionTitle("Projects")}
         {(form.projects || []).map((proj, i) => (
           <div key={i} style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
@@ -282,7 +311,7 @@ function ProfileForm({ profile, onSave, onCancel }) {
         {onCancel && <button onClick={onCancel} style={{ padding: "11px 24px", borderRadius: 10, background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", fontWeight: 600, cursor: "pointer" }}>Cancel</button>}
         <button onClick={save} disabled={saving}
           style={{ padding: "11px 32px", borderRadius: 10, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", border: "none", color: "#fff", fontWeight: 700, fontSize: 14, cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8, opacity: saving ? 0.8 : 1 }}>
-          {saving ? <><Spinner /> Saving…</> : "💾 Save Profile"}
+          {saving ? <><Spinner /> Saving…</> : "Save Profile"}
         </button>
       </div>
     </div>
@@ -309,7 +338,9 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
           <Avatar name={user.name} photo={profile?.photo} size={88} />
           <div style={{ flex: 1 }}>
-            <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: "#f1f5f9" }}>{user.name}</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: "#f1f5f9" }}>
+  {profile?.display_name || user.name}
+</h2>
             {profile?.bio && <p style={{ margin: "0 0 8px", fontSize: 14, color: "#94a3b8", lineHeight: 1.5 }}>{profile.bio}</p>}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "#64748b" }}>
               {profile?.college && <span>🏫 {profile.college}</span>}
@@ -324,8 +355,10 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-            <button onClick={onEdit} style={{ padding: "9px 18px", borderRadius: 8, background: "#4f46e5", border: "none", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>✏️ Edit Profile</button>
-            <button onClick={onLogout} style={{ padding: "9px 18px", borderRadius: 8, background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Sign Out</button>
+            <button onClick={onEdit} style={{ padding: "10px 20px", background: "#4f46e5", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "0.02em" }}>Edit Profile</button>
+            <button style={{ padding:"10px 20px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#64748b", fontSize:13, fontWeight:500, cursor:"pointer" }}>
+  Sign out
+</button>
           </div>
         </div>
 
@@ -336,7 +369,7 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
             <span style={{ fontSize: 12, fontWeight: 700, color: finalPct >= 80 ? "#22c55e" : finalPct >= 50 ? "#eab308" : "#f97316" }}>{finalPct}%</span>
           </div>
           <div style={{ background: "#1e293b", borderRadius: 4, height: 6, overflow: "hidden" }}>
-            <div style={{ width: `${finalPct}%`, height: "100%", background: finalPct >= 80 ? "#22c55e" : finalPct >= 50 ? "#eab308" : "#f97316", borderRadius: 4, transition: "width 1s ease" }} />
+            <div style={{ width: `${finalPct}%`, height: "100%", background: "linear-gradient(90deg, #4f46e5, #818cf8)", borderRadius: 4, transition: "width 1s ease" }} />
           </div>
           {finalPct < 100 && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#475569" }}>
             {!profile?.photo ? "Add a profile photo · " : ""}{!profile?.bio ? "Add a bio · " : ""}{!hasSkills ? "Add skills · " : ""}{!hasExp ? "Add experience · " : ""}{!hasProj ? "Add projects" : ""}
@@ -347,7 +380,7 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
       {/* Skills */}
       {hasSkills && (
         <div style={card}>
-          <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 700, color: "#34d399" }}>🛠️ Skills</p>
+         <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#64748b" }}>Skills</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {profile.skills.map((s, i) => <SkillTag key={i} skill={s} />)}
           </div>
@@ -357,7 +390,7 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
       {/* Experience */}
       {hasExp && (
         <div style={card}>
-          <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>💼 Work Experience</p>
+          <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#64748b" }}>Work Experience</p>
           {profile.experience.map((exp, i) => (
             <div key={i} style={{ borderLeft: "3px solid #4f46e5", paddingLeft: 14, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -376,7 +409,7 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
       {/* Projects */}
       {hasProj && (
         <div style={card}>
-          <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#a78bfa" }}>🚀 Projects</p>
+          <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 700, color: "#64748b" }}>Projects</p>
           {profile.projects.map((proj, i) => (
             <div key={i} style={{ borderLeft: "3px solid #7c3aed", paddingLeft: 14, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -396,11 +429,11 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
       {/* Empty state */}
       {!hasSkills && !hasExp && !hasProj && (
         <div style={{ ...card, textAlign: "center", padding: "40px 24px" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}></div>
           <p style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9", margin: "0 0 8px" }}>Complete your profile</p>
           <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px" }}>Add your skills, experience and projects to stand out to employers.</p>
           <button onClick={onEdit} style={{ padding: "11px 28px", borderRadius: 10, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", border: "none", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-            ✏️ Complete Profile
+            Complete Profile
           </button>
         </div>
       )}
@@ -466,15 +499,15 @@ export default function StudentPortal({ onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#070d1a", zIndex: 600, overflowY: "auto" }}>
       {/* Nav */}
-      <div style={{ background: "#0c1220", borderBottom: "1px solid #1e293b", padding: "0 24px", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ background: "rgba(10,11,17,0.9)", borderBottom: "1px solid rgba(255,255,255,0.05)", backdropFilter: "blur(12px)", padding: "0 24px", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", height: 52, gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 18 }}>🎓</span>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>Student Portal</span>
-          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+  <div style={{ width:8, height:8, borderRadius:"50%", background:"#4f46e5" }}/>
+  <span>Student Portal</span>
+</div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 13, color: "#64748b" }}>👋 {user.name}</span>
-            {onClose && <button onClick={onClose} style={{ padding: "5px 14px", borderRadius: 6, background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>← Back to Jobs</button>}
+            <span style={{ fontSize: 13, color: "#64748b" }}>Hey..!! {user.name}</span>
+            {onClose && <button onClick={onClose} style={{ padding: "8px 16px", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#94a3b8", fontSize: 12, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 14 }}>←</span> Jobs</button>}
           </div>
         </div>
       </div>

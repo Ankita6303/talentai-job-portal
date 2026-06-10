@@ -204,7 +204,7 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#667eea22,#764ba222)", padding: 16 }}>
       <div style={{ background: T.card, borderRadius: 20, padding: "2.5rem 2rem", width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.12)" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 36 }}>⚡</div>
+          <div style={{ fontSize: 36 }}></div>
           <h1 style={{ margin: "8px 0 0", fontSize: 24, fontWeight: 800, color: T.text }}>TalentAI Admin</h1>
           <p style={{ margin: "6px 0 0", color: T.muted, fontSize: 14 }}>Restricted access — authorized users only</p>
         </div>
@@ -939,7 +939,7 @@ export default function AdminPanel() {
       {/* Sidebar */}
       <aside style={{ width: 220, background: T.sidebar, display: "flex", flexDirection: "column", padding: "24px 0", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
         <div style={{ padding: "0 20px 24px", borderBottom: `1px solid ${T.sidebarBorder}` }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>⚡ TalentAI</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}> TalentAI</div>
           <div style={{ fontSize: 12, color: T.sidebarText, marginTop: 2 }}>Admin Panel</div>
         </div>
         <nav style={{ flex: 1, padding: "16px 10px" }}>
