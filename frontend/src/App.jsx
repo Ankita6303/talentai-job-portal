@@ -7,6 +7,7 @@ import ResumeConverter from "./ResumeConverter.jsx";
 import SkillGapMapper from "./Skillgapmapper.jsx";
 import PaymentModal from "./PaymentModal.jsx";
 import StudentPortal from "./StudentPortal.jsx";
+import SmartSkillsInput from "./Smartskillsinput.jsx";
 const BACKEND = "https://talentai-job-portal.onrender.com";
 
 const DEPT = {

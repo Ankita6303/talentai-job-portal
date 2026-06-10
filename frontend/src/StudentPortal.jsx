@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import PhotoPicker from "./PhotoPicker.jsx";
-import SmartSkillsInput from "./SmartSkillsInput";
+import SmartSkillsInput from "./Smartskillsinput.jsx";
 const API = import.meta.env.VITE_API_URL || "https://talentai-job-portal.onrender.com";
 
 // ── helpers ───────────────────────────────────────────────────
