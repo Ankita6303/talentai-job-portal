@@ -8,6 +8,7 @@ import SkillGapMapper from "./Skillgapmapper.jsx";
 import PaymentModal from "./PaymentModal.jsx";
 import StudentPortal from "./StudentPortal.jsx";
 import SmartSkillsInput from "./Smartskillsinput.jsx";
+import SkillTest from "./SkillTest";
 const BACKEND = "https://talentai-job-portal.onrender.com";
 
 const DEPT = {
@@ -390,16 +391,36 @@ const score    = result?.ats_score ?? result?.score ?? result?.ats ?? 0;
           {result.formatting_score!=null&&<ScoreBar label="Resume Formatting" value={result.formatting_score} color="#34d399"/>}
         </div>
         <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
-          <div style={{ background:"#0f172a",borderRadius:10,padding:"12px 14px",border:"1px solid #14532d" }}>
-            <p style={{ margin:"0 0 8px",fontSize:11,color:"#4ade80",fontWeight:700,textTransform:"uppercase" }}>✓ Matched</p>
-            <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>{(result.matched_skills||[]).map(s=><Pill key={s} label={s} matched/>)}</div>
-          </div>
-          <div style={{ background:"#0f172a",borderRadius:10,padding:"12px 14px",border:"1px solid #7f1d1d" }}>
-            <p style={{ margin:"0 0 8px",fontSize:11,color:"#f87171",fontWeight:700,textTransform:"uppercase" }}>✗ Gaps</p>
-            <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>{(result.missing_skills||[]).map(s=><Pill key={s} label={s}/>)}</div>
-          </div>
+          <div style={{ background:"rgba(34,197,94,0.06)",borderRadius:12,padding:"14px 16px",border:"1px solid rgba(34,197,94,0.2)" }}>
+  <p style={{ margin:"0 0 10px",fontSize:11,color:"#4ade80",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em" }}>✓ Matched Skills</p>
+  <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
+    {(result.matched_skills||[]).length===0
+      ? <span style={{ fontSize:12,color:"#475569" }}>None detected</span>
+      : (result.matched_skills||[]).map(s=>(
+          <span key={s} style={{ fontSize:12,padding:"3px 10px",borderRadius:6,background:"rgba(34,197,94,0.12)",color:"#4ade80",border:"1px solid rgba(34,197,94,0.25)",fontWeight:500,display:"inline-flex",alignItems:"center",gap:4 }}>
+            <span style={{ fontSize:9 }}>✓</span>{s}
+          </span>
+        ))
+    }
+  </div>
+</div>
+          <div style={{ background:"rgba(239,68,68,0.06)",borderRadius:12,padding:"14px 16px",border:"1px solid rgba(239,68,68,0.2)" }}>
+  <p style={{ margin:"0 0 10px",fontSize:11,color:"#f87171",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em" }}>✗ Missing Skills</p>
+  <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
+    {(result.missing_skills||[]).length===0
+      ? <span style={{ fontSize:12,color:"#475569" }}>None — great match!</span>
+      : (result.missing_skills||[]).map(s=>(
+          <span key={s} style={{ fontSize:12,padding:"3px 10px",borderRadius:6,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",fontWeight:500 }}>
+            {s}
+          </span>
+        ))
+    }
+  </div>
+</div>
         </div>
-        <button onClick={onClose} style={{ width:"100%",padding:"12px",borderRadius:8,background:"#1d4ed8",border:"none",color:"#eff6ff",fontSize:14,fontWeight:700,cursor:"pointer" }}>Close Report</button>
+        <button onClick={onClose} style={{ width:"100%",padding:"13px",borderRadius:10,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",letterSpacing:"0.02em",boxShadow:"0 4px 16px rgba(99,102,241,0.3)" }}>
+  Close Report
+</button>
       </div>
     </div>
   );
@@ -480,6 +501,76 @@ function LoginScreen({ onLogin }) {
     </div>
   );
 }
+// ATS Only 
+function ATSOnlyModal({ job, onClose, onResult }) {
+  const [name,setName]=useState("");
+  const [email,setEmail]=useState("");
+  const [file,setFile]=useState(null);
+  const [paste,setPaste]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [step,setStep]=useState("form");
+  const inp2 = { width:"100%",background:"#0f172a",border:"1px solid #1e293b",borderRadius:8,color:"#f1f5f9",fontSize:14,padding:"10px 12px",outline:"none",boxSizing:"border-box",fontFamily:"inherit" };
+  const handleFile=e=>{const f=e.target.files[0];if(!f)return;if(!f.name.match(/\.(pdf|txt|md)$/i)){setError("PDF, TXT or MD only");return;}setFile(f);setError("");};
+  const check=async()=>{
+    if(!name.trim()||!email.trim())return setError("Name and email required");
+    if(!file&&!paste.trim())return setError("Upload resume or paste text");
+    setLoading(true);setStep("analyzing");setError("");
+    try {
+      const res = await api.apply({ job_id:job.id, name, email, phone:"", resumeFile:file||undefined, resume_text:!file?paste:undefined });
+      const aiResult = res.ai_result||res.result||res.data||res;
+      const appName  = res.application?.name||name;
+      onResult({ data:aiResult, name:appName, jobTitle:job.title });
+    } catch(e){ setError(e.message); setStep("form"); }
+    setLoading(false);
+  };
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:20 }}>
+      <div style={{ background:"#0c1220",border:"1px solid #1e293b",borderRadius:16,width:"100%",maxWidth:480,padding:28 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18 }}>
+          <div>
+            <p style={{ margin:0,fontSize:18,fontWeight:700,color:"#f1f5f9" }}>Check ATS Score</p>
+            <p style={{ margin:"4px 0 0",fontSize:13,color:"#64748b" }}>{job.title} · No application submitted</p>
+          </div>
+          <button onClick={onClose} style={{ background:"none",border:"none",color:"#64748b",fontSize:24,cursor:"pointer" }}>×</button>
+        </div>
+        <div style={{ background:"#1e293b",borderRadius:8,padding:"8px 12px",marginBottom:16,fontSize:12,color:"#60a5fa" }}>
+          ℹ️ This <strong>only checks your ATS score</strong> — it does not submit a job application.
+        </div>
+        {step==="analyzing"&&(
+          <div style={{ textAlign:"center",padding:"40px 20px" }}>
+            <div style={{ width:56,height:56,border:"4px solid #1e293b",borderTopColor:"#2563eb",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 16px" }}/>
+            <p style={{ fontSize:15,fontWeight:600,color:"#f1f5f9",margin:0 }}>Scanning your resume…</p>
+            <p style={{ fontSize:12,color:"#475569",marginTop:6 }}>AI is checking keyword match, skills & format</p>
+          </div>
+        )}
+        {step==="form"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <input style={inp2} placeholder="Your Name *" value={name} onChange={e=>setName(e.target.value)}/>
+            <input style={inp2} type="email" placeholder="Your Email *" value={email} onChange={e=>setEmail(e.target.value)}/>
+            <label style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,border:`2px dashed ${file?"#2563eb":"#1e3a5f"}`,borderRadius:10,padding:"20px 16px",cursor:"pointer",background:file?"#0f2744":"transparent" }}>
+              <input type="file" accept=".pdf,.txt,.md" style={{ display:"none" }} onChange={handleFile}/>
+              <span style={{ fontSize:26 }}>{file?"📄":"⬆️"}</span>
+              {file ? <span style={{ fontSize:13,color:"#60a5fa",fontWeight:600 }}>{file.name}</span> : <><span style={{ fontSize:13,color:"#475569",fontWeight:600 }}>Upload Resume (PDF/TXT)</span><span style={{ fontSize:11,color:"#334155" }}>Max 10MB</span></>}
+            </label>
+            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+              <div style={{ flex:1,height:1,background:"#1e293b" }}/><span style={{ fontSize:11,color:"#475569" }}>OR PASTE TEXT</span><div style={{ flex:1,height:1,background:"#1e293b" }}/>
+            </div>
+            <textarea style={{ ...inp2,height:90,resize:"vertical",fontSize:13 }} placeholder="Paste resume text here…" value={paste} onChange={e=>{setPaste(e.target.value);if(e.target.value)setFile(null);}}/>
+            {error&&<div style={{ fontSize:13,color:"#f87171",padding:"8px 12px",background:"#7f1d1d22",borderRadius:8 }}>⚠️ {error}</div>}
+            <div style={{ display:"flex",gap:8,marginTop:4 }}>
+              <button onClick={onClose} style={{ flex:1,padding:"10px",borderRadius:8,background:"none",border:"1px solid #1e293b",color:"#94a3b8",fontSize:14,cursor:"pointer" }}>Cancel</button>
+              <button onClick={check} disabled={loading} style={{ flex:2,padding:"11px",borderRadius:8,background:"linear-gradient(135deg,#1d4ed8,#4f46e5)",border:"none",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",opacity:loading?0.7:1 }}>
+                {loading?"Scanning…":"Check My ATS Score →"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // ── CHANGE: JobsView now accepts onOpenTemplates prop ─────────
 function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillGap }) {
@@ -488,10 +579,12 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
   const [applying,setApplying] = useState(null);
   const [result,setResult]   = useState(null);
   const [voiceJob,setVoiceJob] = useState(null);
-  const [filter, setFilter] = useState("All");
-  const [search,setSearch]   = useState("");
-  const [loading,setLoading] = useState(true);
-  const [err,setErr]         = useState("");
+const [search,setSearch]     = useState("");
+const [atsOnly,setAtsOnly]   = useState(null);
+const [filter, setFilter]    = useState("All");
+const [loading,setLoading]   = useState(true);
+const [err,setErr]           = useState("");
+
 
   useEffect(()=>{
     api.getJobs()
@@ -552,6 +645,7 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
           value={search}
           onChange={e=>setSearch(e.target.value)}
         />
+        
 
        {/* Filter chips */}
 <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
@@ -591,15 +685,7 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
           {filtered.map(j=>{
             const col=DEPT[j.department], isSel=selected?.id===j.id, skills=Array.isArray(j.skills)?j.skills:[];
             return (
-              <div key={j.id} onClick={()=>setSelected(j)} style={{
-                background: isSel?"#1a1f2e":"#13161f",
-                border:`1px solid ${isSel?"#388bfd":"rgba(255,255,255,0.06)"}`,
-                borderRadius:14,
-                padding:"16px 18px",
-                cursor:"pointer",
-                position:"relative",
-                transition:"all 0.18s",
-              }}>
+             <div key={j.id} onClick={()=>setSelected(j)} style={{ background:isSel?"#0d1117":"#0a0f1a",border:`1px solid ${isSel?"#6366f1":"rgba(255,255,255,0.06)"}`,borderRadius:14,padding:"16px 18px",cursor:"pointer",position:"relative",transition:"all 0.15s",boxShadow:isSel?"0 0 0 1px #6366f133":"none" }}>
                 {isSel && (
                   <div style={{
                     position:"absolute", left:0, top:10, bottom:10,
@@ -623,9 +709,7 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
                     </span>
                   )}
                 </div>
-                <p style={{ margin:"0 0 10px", fontSize:12, color:"#8b949e", lineHeight:1.5 }}>
-                  {j.description?.slice(0,85)}…
-                </p>
+                <p style={{ margin:"0 0 10px",fontSize:12,color:"#475569",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden" }}>{j.description}</p>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:12 }}>
                   {skills.slice(0,4).map(s=>(
                     <span key={s} style={{
@@ -723,14 +807,15 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
                 Core Skills
               </p>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:18 }}>
-                {(Array.isArray(selected.skills)?selected.skills:[]).map((s,i)=>(
-                  <span key={s} style={{
-                    fontSize:12, padding:"4px 12px", borderRadius:8,
-                    border: i<3 ? "1px solid rgba(31,111,235,0.4)" : "1px solid #21262d",
-                    color:  i<3 ? "#79c0ff" : "#8b949e",
-                    background: i<3 ? "rgba(31,111,235,0.08)" : "#0d1117",
-                  }}>{s}</span>
-                ))}
+                {(Array.isArray(selected.skills)?selected.skills:[]).map((s)=>(
+  <span key={s} style={{
+    fontSize:12, padding:"4px 12px", borderRadius:6,
+    border:"1px solid rgba(99,102,241,0.3)",
+    color:"#a5b4fc",
+    background:"rgba(99,102,241,0.1)",
+    fontWeight:500,
+  }}>{s}</span>
+))}
               </div>
             </>
           )}
@@ -754,8 +839,7 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
           <div style={{ marginTop:4 }}>
 
             {/* Upload Resume — primary full width */}
-            <button
-              onClick={()=>{ setResult(null); setApplying(selected); }}
+            <button onClick={() => { setResult(null); setAtsOnly(selected); }}
               style={{
                 width:"100%", padding:"13px 18px", borderRadius:11,
                 border:"1px solid rgba(99,102,241,0.35)",
@@ -848,7 +932,8 @@ function JobsView({ onOpenTemplates, onOpenResume, onOpenConverter, onOpenSkillG
       )}
 
       {/* Modals */}
-     {applying&&<ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{
+     {atsOnly && <ATSOnlyModal job={atsOnly} onClose={()=>setAtsOnly(null)} onResult={res=>{setAtsOnly(null);setResult(res);}}/>}
+{applying&&<ApplyModal job={applying} onClose={()=>setApplying(null)} onSuccess={res=>{
   setApplying(null);
   const aiResult = res?.ai_result || res?.result || res?.data || res || {};
   const appName  = res?.application?.name || res?.name || "Applicant";
@@ -1102,7 +1187,7 @@ if (showWelcome) {
 }
 
   return (
-    <div style={{ minHeight:"100vh",background:"#0f1117",color:"#f1f5f9",fontFamily:"'Plus Jakarta Sans','IBM Plex Sans',system-ui,sans-serif" }}>
+    <div style={{ minHeight:"100vh",background:"#0f1117",color:"#f1f5f9",fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
       <style>{`
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes fadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }

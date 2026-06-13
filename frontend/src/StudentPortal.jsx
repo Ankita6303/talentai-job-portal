@@ -5,7 +5,10 @@ const API = import.meta.env.VITE_API_URL || "https://talentai-job-portal.onrende
 
 // ── helpers ───────────────────────────────────────────────────
 const token = () => localStorage.getItem("student_token") || localStorage.getItem("talentai_token");
-const authH = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token()}` });
+const authH = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("candidate_token") || localStorage.getItem("student_token") || ""}`
+});
 const inp = {
   width: "100%", background: "#0f172a", border: "1px solid #1e293b",
   borderRadius: 8, color: "#f1f5f9", fontSize: 14, padding: "10px 12px",
@@ -356,7 +359,7 @@ function ProfileView({ user, profile, onEdit, onLogout }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
             <button onClick={onEdit} style={{ padding: "10px 20px", background: "#4f46e5", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "0.02em" }}>Edit Profile</button>
-            <button style={{ padding:"10px 20px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#64748b", fontSize:13, fontWeight:500, cursor:"pointer" }}>
+            <button onClick={onLogout} style={{ padding:"10px 20px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#64748b", fontSize:13, fontWeight:500, cursor:"pointer" }}>
   Sign out
 </button>
           </div>
@@ -451,20 +454,45 @@ export default function StudentPortal({ onClose }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = token();
-    if (t) loadMe(t);
-    else setLoading(false);
-  }, []);
+  const t = localStorage.getItem("candidate_token") || localStorage.getItem("student_token");
+  if (t) {
+    loadMe();
+  } else {
+    // Try loading from saved localStorage directly
+    const savedUser = localStorage.getItem("candidate_user");
+    const savedProfile = localStorage.getItem("candidate_profile");
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        setUser(u);
+        if (savedProfile) setProfile(JSON.parse(savedProfile));
+      } catch {}
+    }
+    setLoading(false);
+  }
+}, []);
 
   const loadMe = async () => {
-    try {
-      const r = await fetch(`${API}/auth/me`, { headers: authH() });
-      if (!r.ok) { localStorage.removeItem("student_token"); setLoading(false); return; }
-      const u = await r.json();
-      setUser(u);
-      await loadProfile();
-    } catch { setLoading(false); }
-  };
+  try {
+    const r = await fetch(`${API}/auth/me`, { headers: authH() });
+    if (!r.ok) {
+      localStorage.removeItem("student_token");
+      setLoading(false);
+      return;
+    }
+    const u = await r.json();
+    setUser(u);
+    // Load saved profile from localStorage as fallback
+    const saved = localStorage.getItem("candidate_profile");
+    if (saved) {
+      try { setProfile(JSON.parse(saved)); } catch {}
+    }
+    await loadProfile();
+  } catch(e) {
+    console.error("loadMe error:", e);
+    setLoading(false);
+  }
+};
 
   const loadProfile = async () => {
     try {
@@ -484,9 +512,14 @@ export default function StudentPortal({ onClose }) {
   const handleSave = (saved) => { setProfile(saved); setEditing(false); };
 
   const handleLogout = () => {
-    localStorage.removeItem("student_token");
-    setUser(null); setProfile(null); setEditing(false);
-  };
+  localStorage.removeItem("candidate_token");
+  localStorage.removeItem("candidate_user");
+  localStorage.removeItem("candidate_profile");
+  localStorage.removeItem("student_token");
+  setUser(null);
+  setProfile(null);
+  onClose();
+};
 
   if (loading) return (
     <div style={{ position: "fixed", inset: 0, background: "#070d1a", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 600 }}>
